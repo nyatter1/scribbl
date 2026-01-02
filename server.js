@@ -5,42 +5,39 @@ const path = require('path');
 const app = express();
 const server = http.createServer(app);
 
-// Middleware
-// We use a 10mb limit to handle base64 profile picture uploads
-app.use(express.json({ limit: '10mb' })); 
+// Use a high limit for JSON to allow base64 profile pictures to be synced
+app.use(express.json({ limit: '15mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 /**
- * IN-MEMORY DATA STORE
- * In a production environment, this would be replaced by a database like Firestore.
+ * IN-MEMORY DATABASE
+ * This stores all live session data: messages, users, and ranks.
  */
 let messages = [];
-let users = {}; // Key: username, Value: user object
+let users = {}; // Keyed by username
 
-// Mock initial System user to welcome people
-const BOT_USER = {
-    username: "SystemBot",
+// Create a system user by default
+const SYSTEM_USER = {
+    username: "System",
     password: "bot",
     role: "Bot",
     pfp: null,
     isOnline: true,
     lastSeen: Date.now()
 };
-users["SystemBot"] = BOT_USER;
+users["System"] = SYSTEM_USER;
 
-// Initial welcome message
+// Initial system message
 messages.push({
-    username: "SystemBot",
+    username: "System",
     role: "Bot",
     pfp: null,
-    text: "Live Network initialized. Global Lobby is now active.",
+    text: "The network is live. Welcome to the Global Lobby.",
     timestamp: new Date().toISOString()
 });
 
 /**
- * AUTH / LOGIN ENDPOINT
- * Handles registration and login simultaneously for simplicity.
- * Automatically handles the "Developer" rank assignment.
+ * AUTHENTICATION & RANK LOGIC
  */
 app.post('/api/auth/login', (req, res) => {
     const { identifier, password, pfp } = req.body;
@@ -49,14 +46,14 @@ app.post('/api/auth/login', (req, res) => {
         return res.status(400).json({ success: false, message: "Missing credentials" });
     }
 
-    // MANDATORY RULE: The username "Developer" is automatically granted the Developer rank.
+    // MANDATORY RULE: Automatically grant Developer rank to the username 'Developer'
     let assignedRole = "VIP";
     if (identifier.toLowerCase() === "developer") {
         assignedRole = "Developer";
     }
 
     if (!users[identifier]) {
-        // New user registration
+        // Register new user
         users[identifier] = {
             username: identifier,
             password: password,
@@ -66,16 +63,16 @@ app.post('/api/auth/login', (req, res) => {
             lastSeen: Date.now()
         };
     } else {
-        // Existing user login
+        // Log in existing user
         const user = users[identifier];
         if (user.password !== password) {
             return res.status(401).json({ success: false, message: "Invalid password" });
         }
         
-        // Update user heartbeat and status
+        // Sync online status and profile pic
         user.isOnline = true;
         user.lastSeen = Date.now();
-        user.role = assignedRole; // Ensure Developer rank is maintained
+        user.role = assignedRole; // Keep rank updated
         if (pfp) user.pfp = pfp; 
     }
 
@@ -83,10 +80,10 @@ app.post('/api/auth/login', (req, res) => {
 });
 
 /**
- * MESSAGES ENDPOINTS
+ * MESSAGES BROADCASTING
  */
 app.get('/api/messages', (req, res) => {
-    // Return last 50 messages for performance
+    // Return latest messages
     res.json(messages.slice(-50));
 });
 
@@ -105,21 +102,23 @@ app.post('/api/messages', (req, res) => {
 
     messages.push(newMessage);
     
-    // Keep memory clean
+    // Memory management: prevent massive arrays
     if (messages.length > 200) messages.shift();
 
     res.status(201).json(newMessage);
 });
 
 /**
- * USERS DIRECTORY ENDPOINT
- * Used by the sidebar in Canvas to show who is online.
+ * USER DIRECTORY & ONLINE TRACKING
+ * This powers the sidebar in index.html
  */
 app.get('/api/users', (req, res) => {
     const now = Date.now();
+    
+    // Convert object to array and calculate current online status
     const userList = Object.values(users).map(u => {
-        // Heartbeat check: Users are considered offline after 12 seconds of inactivity
-        if (u.username !== "SystemBot" && now - u.lastSeen > 12000) {
+        // A user is considered offline if they haven't pinged the server in 12 seconds
+        if (u.username !== "System" && now - u.lastSeen > 12000) {
             u.isOnline = false;
         }
         return {
@@ -129,47 +128,30 @@ app.get('/api/users', (req, res) => {
             isOnline: u.isOnline
         };
     });
+
     res.json(userList);
 });
 
 /**
- * PROFILE UPDATE ENDPOINT
- * Allows users to change their bio, email, or profile picture.
+ * HEARTBEAT PING
+ * index.html calls this periodically to stay "Live"
  */
-app.put('/api/users/profile', (req, res) => {
-    const { currentUsername, username, email, bio, profilePic } = req.body;
-    
-    if (!users[currentUsername]) {
-        return res.status(404).json({ success: false, message: "User not found" });
+app.post('/api/heartbeat', (req, res) => {
+    const { username, pfp } = req.body;
+    if (users[username]) {
+        users[username].isOnline = true;
+        users[username].lastSeen = Date.now();
+        if (pfp) users[username].pfp = pfp;
+        res.json({ success: true });
+    } else {
+        res.status(404).json({ success: false });
     }
-
-    const user = users[currentUsername];
-    
-    // Handle username change
-    if (username && username !== currentUsername) {
-        if (users[username]) {
-            return res.status(400).json({ success: false, message: "Username already taken" });
-        }
-        // Migrate user data to new key
-        delete users[currentUsername];
-        user.username = username;
-        
-        // Re-enforce Developer rank if they changed to that name
-        if (username.toLowerCase() === "developer") {
-            user.role = "Developer";
-        }
-        
-        users[username] = user;
-    }
-
-    if (email) user.email = email;
-    if (bio) user.bio = bio;
-    if (profilePic) user.pfp = profilePic;
-
-    res.json({ success: true, user });
 });
 
+/**
+ * START SERVER
+ */
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`ChatApp Server is running on port ${PORT}`);
+    console.log(`[NETWORK] Frequency stabilized on port ${PORT}`);
 });
