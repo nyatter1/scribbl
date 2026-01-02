@@ -3,324 +3,338 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scribble.io | Live Multiplayer</title>
+    <title>ChatApp - Global Network</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-        body { font-family: 'Inter', sans-serif; overflow: hidden; }
-        .canvas-container { aspect-ratio: 4/3; }
-        .custom-scroll::-webkit-scrollbar { width: 4px; }
-        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        
+        .tab-active {
+            background: rgba(79, 70, 229, 0.1);
+            border-left: 3px solid #6366f1;
+            color: white;
+        }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade { animation: fadeIn 0.2s ease-out forwards; }
     </style>
 </head>
-<body class="bg-[#0f172a] text-slate-100">
+<body class="bg-slate-950 text-slate-200 min-h-screen font-sans flex flex-col overflow-hidden">
 
-    <!-- MENU SCREEN -->
-    <div id="menu-screen" class="min-h-screen w-full flex items-center justify-center p-4 relative">
-        <div class="absolute inset-0 overflow-hidden pointer-events-none">
-            <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-600/20 blur-[120px] rounded-full"></div>
-            <div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/20 blur-[120px] rounded-full"></div>
+    <!-- Top Navigation -->
+    <header class="bg-slate-900/80 border-b border-slate-800 p-3 px-6 flex justify-between items-center z-50 backdrop-blur-md">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                </svg>
+            </div>
+            <h1 class="text-lg font-black italic tracking-tighter text-white uppercase">ChatApp</h1>
         </div>
 
-        <main class="relative w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 gap-6 z-10">
-            <!-- Left Profile -->
-            <section class="lg:col-span-5 flex flex-col gap-6">
-                <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[40px] p-8 flex flex-col items-center shadow-2xl relative overflow-hidden">
-                    <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 to-pink-500"></div>
-                    <div id="avatar-preview" class="w-48 h-48 rounded-full shadow-2xl flex items-center justify-center text-8xl mb-8 border-8 border-white/5 bg-[#FF6B6B]">
-                        ✏️
-                    </div>
-                    <div class="w-full space-y-4">
-                        <label class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1 block">Artist Tag</label>
-                        <input type="text" id="username-input" value="SketchaLot" class="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xl font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all">
-                    </div>
-                </div>
-            </section>
-
-            <!-- Right Actions -->
-            <section class="lg:col-span-7 flex flex-col gap-6">
-                <header class="flex items-center justify-between px-2">
-                    <h1 class="text-5xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-500">
-                        SCRIBBLE <span class="text-indigo-500 not-italic">.io</span>
-                    </h1>
-                </header>
-
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <button onclick="joinGame('Global')" class="group relative overflow-hidden bg-indigo-600 hover:bg-indigo-500 transition-all rounded-[32px] p-8 text-left shadow-xl active:scale-95">
-                        <i data-lucide="play" class="w-12 h-12 mb-4 text-white"></i>
-                        <h2 class="text-2xl font-black text-white">QUICK PLAY</h2>
-                    </button>
-                    <button onclick="joinGame('Private')" class="group relative overflow-hidden bg-white/5 hover:bg-white/10 border border-white/10 transition-all rounded-[32px] p-8 text-left active:scale-95">
-                        <i data-lucide="plus-circle" class="w-12 h-12 mb-4 text-emerald-400"></i>
-                        <h2 class="text-2xl font-black text-white">PRIVATE ROOM</h2>
-                    </button>
-                </div>
-                <div id="conn-status" class="text-center text-xs font-bold text-slate-500 uppercase tracking-widest">Connecting to server...</div>
-            </section>
-        </main>
-    </div>
-
-    <!-- GAME SCREEN -->
-    <div id="game-screen" class="hidden h-screen w-full flex flex-col overflow-hidden">
-        <header class="h-16 border-b border-white/10 bg-white/5 backdrop-blur-md flex items-center justify-between px-6 shrink-0">
-            <div class="flex items-center gap-4">
-                <h1 class="text-2xl font-black italic tracking-tighter">SCRIBBLE<span class="text-indigo-500">.io</span></h1>
-                <div class="h-8 w-[1px] bg-white/10"></div>
-                <div class="flex flex-col">
-                    <span class="text-xs font-bold text-slate-400 uppercase tracking-widest leading-none">Room</span>
-                    <span id="display-room-name" class="font-bold text-indigo-400">Loading...</span>
-                </div>
+        <div class="flex items-center gap-4">
+            <div id="admin-btn" class="hidden">
+                <a href="/admin.html" class="text-[10px] font-black uppercase tracking-widest text-red-500 hover:text-red-400">Admin Panel</a>
             </div>
-            
-            <div id="game-timer-container" class="flex items-center gap-6">
-                <div class="bg-black/40 px-6 py-2 rounded-full border border-white/5 flex items-center gap-3">
-                   <span class="text-xs font-bold text-slate-500 uppercase">Word:</span>
-                   <span id="word-display" class="text-xl font-mono tracking-[0.3em] font-bold text-white">_ _ _ _ _ _</span>
+            <button onclick="triggerPfpUpdate()" class="relative group">
+                <img id="top-nav-pfp" src="" class="w-9 h-9 rounded-full border-2 border-slate-700 group-hover:border-indigo-500 transition-all object-cover bg-slate-800">
+                <div class="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                    </svg>
                 </div>
-                <div id="timer" class="text-2xl font-black text-indigo-500 bg-indigo-500/10 w-12 h-12 rounded-xl flex items-center justify-center border border-indigo-500/20">60</div>
+            </button>
+            <input type="file" id="pfp-changer" accept="image/*" class="hidden" onchange="updateGlobalPfp(this)">
+        </div>
+    </header>
+
+    <div class="flex flex-grow overflow-hidden">
+        
+        <!-- Left Sidebar: Tabs -->
+        <aside class="w-64 bg-slate-900/30 border-r border-slate-800 flex flex-col">
+            <div class="p-6 space-y-1">
+                <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-4 ml-2 italic">Navigation</h3>
+                
+                <button onclick="switchTab('chat')" id="tab-chat" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition tab-active">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z" />
+                    </svg>
+                    Global Chat
+                </button>
+                
+                <button onclick="switchTab('staff')" id="tab-staff" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-slate-400 hover:bg-slate-800/50 transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                    Staff Members
+                </button>
+
+                <button onclick="switchTab('rules')" id="tab-rules" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-slate-400 hover:bg-slate-800/50 transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
+                    Rules
+                </button>
+
+                <button onclick="switchTab('news')" id="tab-news" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-slate-400 hover:bg-slate-800/50 transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+                    </svg>
+                    News
+                </button>
             </div>
+        </aside>
 
-            <button onclick="location.reload()" class="p-2 hover:bg-white/10 rounded-xl transition-colors"><i data-lucide="x"></i></button>
-        </header>
-
-        <div class="flex-1 flex overflow-hidden p-4 gap-4">
-            <!-- Sidebar -->
-            <aside class="w-64 flex flex-col gap-4 shrink-0">
-                <div class="bg-white/5 border border-white/10 rounded-3xl flex-1 flex flex-col overflow-hidden">
-                    <div class="p-4 border-b border-white/10 flex items-center gap-2">
-                        <i data-lucide="trophy" class="w-5 h-5 text-yellow-500"></i>
-                        <h2 class="font-bold uppercase text-sm tracking-widest text-slate-400">Players</h2>
-                    </div>
-                    <div id="player-list" class="flex-1 overflow-y-auto p-2 space-y-1 custom-scroll"></div>
-                </div>
-            </aside>
-
-            <!-- Canvas Area -->
-            <main class="flex-1 flex flex-col gap-4 relative">
-                <div class="flex-1 bg-white rounded-[32px] shadow-2xl overflow-hidden relative">
-                    <div id="waiting-overlay" class="absolute inset-0 z-20 bg-slate-900/90 backdrop-blur-md flex flex-col items-center justify-center text-center p-8">
-                        <i data-lucide="users" class="w-16 h-16 text-indigo-500 mb-6 animate-pulse"></i>
-                        <h2 class="text-4xl font-black mb-2">WAITING FOR OPPONENT</h2>
-                        <p class="text-slate-400 mb-6">Game starts automatically when 2 players join.</p>
-                        <div class="bg-white/5 px-6 py-3 rounded-2xl border border-white/10 font-bold text-indigo-400">
-                            <span id="player-count">1</span> / 2 Players
-                        </div>
-                    </div>
-                    <canvas id="game-canvas" width="1200" height="900" class="w-full h-full cursor-crosshair touch-none"></canvas>
-                    
-                    <!-- Toolbar (Only visible to drawer) -->
-                    <div id="toolbar" class="hidden absolute bottom-6 left-1/2 -translate-x-1/2 bg-slate-900/95 border border-white/10 p-2 rounded-2xl flex items-center gap-2 shadow-2xl">
-                        <button onclick="setTool('pencil')" id="tool-pencil" class="p-3 bg-indigo-500 text-white rounded-xl"><i data-lucide="pencil"></i></button>
-                        <button onclick="setTool('eraser')" id="tool-eraser" class="p-3 text-slate-400 hover:bg-white/5 rounded-xl"><i data-lucide="eraser"></i></button>
-                        <div class="w-[1px] h-6 bg-white/10 mx-1"></div>
-                        <div id="color-palette" class="flex gap-1.5 px-2"></div>
-                        <div class="w-[1px] h-6 bg-white/10 mx-1"></div>
-                        <button onclick="clearCanvasSync()" class="p-3 hover:bg-red-500/20 text-red-400 rounded-xl"><i data-lucide="trash-2"></i></button>
+        <!-- Middle: Main Content -->
+        <main class="flex-grow flex flex-col bg-slate-950">
+            <!-- Chat View -->
+            <div id="view-chat" class="flex-grow flex flex-col h-full">
+                <div id="chat-feed" class="flex-grow p-6 overflow-y-auto custom-scrollbar space-y-4">
+                    <div class="text-center py-10 opacity-30">
+                        <p class="text-[10px] font-black uppercase tracking-[0.2em] italic">Start of message history</p>
                     </div>
                 </div>
-            </main>
-
-            <!-- Chat Area -->
-            <aside class="w-80 flex flex-col gap-4 shrink-0">
-                <div class="bg-white/5 border border-white/10 rounded-3xl flex-1 flex flex-col overflow-hidden">
-                    <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-4 custom-scroll"></div>
-                    <form id="chat-form" class="p-4 bg-black/20">
-                        <div class="relative">
-                            <input type="text" id="chat-input" placeholder="Guess the word..." class="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-4 pr-12 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
-                            <button type="submit" class="absolute right-2 top-1.5 p-2 bg-indigo-500 rounded-xl"><i data-lucide="send" class="w-4 h-4"></i></button>
-                        </div>
+                
+                <div class="p-4 bg-slate-900/50 border-t border-slate-800">
+                    <form onsubmit="sendMessage(event)" class="max-w-4xl mx-auto flex gap-3">
+                        <input type="text" id="message-input" 
+                            class="flex-grow bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition-all placeholder:text-slate-600"
+                            placeholder="Type something..." autocomplete="off">
+                        <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white p-3 px-5 rounded-xl transition shadow-lg shadow-indigo-500/20 active:scale-95">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                            </svg>
+                        </button>
                     </form>
                 </div>
-            </aside>
-        </div>
+            </div>
+
+            <!-- Other Views (Injected content) -->
+            <div id="view-content" class="hidden flex-grow p-10 overflow-y-auto custom-scrollbar animate-fade">
+                <!-- Content injected via switchTab -->
+            </div>
+        </main>
+
+        <!-- Right Sidebar: User Profile -->
+        <aside class="w-72 bg-slate-900/30 border-l border-slate-800 flex flex-col">
+            <div class="p-6">
+                <!-- User Profile Display -->
+                <div class="flex flex-col items-center mb-8 pb-8 border-b border-slate-800/50">
+                    <div class="relative mb-3">
+                        <img id="sidebar-pfp" src="" class="w-24 h-24 rounded-3xl object-cover border-2 border-slate-800 bg-slate-800 shadow-2xl">
+                        <div class="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 border-4 border-slate-950 rounded-full"></div>
+                    </div>
+                    <h2 id="sidebar-username" class="text-xl font-black text-white uppercase tracking-tight">User</h2>
+                    <span id="sidebar-role" class="text-[9px] font-black uppercase tracking-widest text-indigo-500">Member</span>
+                </div>
+
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 italic">User Directory</h3>
+                    <span id="active-count" class="text-[9px] bg-indigo-500/10 px-2 py-0.5 rounded font-bold text-indigo-400">0</span>
+                </div>
+                
+                <div id="user-list" class="space-y-3">
+                    <!-- Users list -->
+                </div>
+            </div>
+        </aside>
+
     </div>
 
     <script>
-        // Updated to your live Render URL
-        const SERVER_URL = 'https://my-chat-site.onrender.com'; 
-        const socket = io(SERVER_URL);
-        
-        const canvas = document.getElementById('game-canvas');
-        const ctx = canvas.getContext('2d');
-        const statusEl = document.getElementById('conn-status');
-        let isDrawing = false;
-        let myTurn = false;
-        let currentTool = 'pencil';
-        let currentColor = '#000000';
-        let currentSize = 5;
-        let roomName = '';
+        let currentUser = null;
+        let usersUpdateInterval = null;
 
-        lucide.createIcons();
-
-        // Connection Handling
-        socket.on('connect', () => {
-            statusEl.innerText = 'Server Connected';
-            statusEl.classList.replace('text-slate-500', 'text-emerald-500');
-        });
-
-        socket.on('disconnect', () => {
-            statusEl.innerText = 'Lost Connection...';
-            statusEl.classList.replace('text-emerald-500', 'text-red-500');
-        });
-
-        // Color Palette Init
-        const paintColors = ['#000000', '#ffffff', '#ef4444', '#f97316', '#facc15', '#22c55e', '#3b82f6', '#6366f1', '#a855f7', '#ec4899'];
-        const paletteContainer = document.getElementById('color-palette');
-        paintColors.forEach(color => {
-            const btn = document.createElement('button');
-            btn.className = 'w-7 h-7 rounded-full border-2 border-transparent hover:scale-110 transition-transform';
-            btn.style.backgroundColor = color;
-            btn.onclick = () => { currentColor = color; setTool('pencil'); };
-            paletteContainer.appendChild(btn);
-        });
-
-        function joinGame(targetRoom) {
-            if (!socket.connected) {
-                alert("Wait for server connection...");
+        window.onload = () => {
+            const savedUser = localStorage.getItem('chat_user');
+            if (!savedUser) {
+                window.location.href = '/login.html';
                 return;
             }
-            roomName = targetRoom === 'Global' ? 'Public Lobby' : targetRoom;
-            const username = document.getElementById('username-input').value;
-            const avatarColor = document.getElementById('avatar-preview').style.backgroundColor;
-
-            document.getElementById('menu-screen').classList.add('hidden');
-            document.getElementById('game-screen').classList.remove('hidden');
-            document.getElementById('display-room-name').innerText = roomName;
-
-            socket.emit('join_room', { roomName, username, avatarColor });
-        }
-
-        function setTool(tool) {
-            currentTool = tool;
-            document.getElementById('tool-pencil').className = tool === 'pencil' ? 'p-3 bg-indigo-500 text-white rounded-xl' : 'p-3 text-slate-400 hover:bg-white/5 rounded-xl';
-            document.getElementById('tool-eraser').className = tool === 'eraser' ? 'p-3 bg-indigo-500 text-white rounded-xl' : 'p-3 text-slate-400 hover:bg-white/5 rounded-xl';
-        }
-
-        // Socket Logic
-        socket.on('room_update', (data) => {
-            document.getElementById('player-count').innerText = data.players.length;
-            const list = document.getElementById('player-list');
-            list.innerHTML = data.players.map(p => `
-                <div class="flex items-center justify-between p-3 rounded-2xl ${p.id === socket.id ? 'bg-indigo-500/20 border border-indigo-500/30' : 'hover:bg-white/5'}">
-                    <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded-full border-2 border-white/10 flex items-center justify-center text-xs" style="background-color: ${p.avatarColor}">${p.username[0]}</div>
-                        <span class="font-bold truncate w-24">${p.username}</span>
-                    </div>
-                    <span class="text-sm font-black text-indigo-400">${p.points}</span>
-                </div>
-            `).join('');
-        });
-
-        socket.on('game_start', ({ drawerId, word }) => {
-            myTurn = socket.id === drawerId;
-            document.getElementById('waiting-overlay').classList.add('hidden');
-            document.getElementById('word-display').innerText = myTurn ? word : word.split('').map(() => '_ ').join('');
-            if (myTurn) document.getElementById('toolbar').classList.remove('hidden');
-            else document.getElementById('toolbar').classList.add('hidden');
-            addChatMessage('System', 'Game started! 2 players present.', 'system');
-        });
-
-        socket.on('remote_draw', ({ x, y, type, color, size }) => {
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-            ctx.strokeStyle = color;
-            ctx.lineWidth = size;
-            if (type === 'start') { ctx.beginPath(); ctx.moveTo(x, y); }
-            else if (type === 'move') { ctx.lineTo(x, y); ctx.stroke(); }
-            else { ctx.closePath(); }
-        });
-
-        socket.on('receive_message', (data) => {
-            addChatMessage(data.user, data.msg, data.type);
-        });
-
-        // Drawing Handlers
-        function getCoords(e) {
-            const rect = canvas.getBoundingClientRect();
-            const clientX = e.clientX || (e.touches && e.touches[0].clientX);
-            const clientY = e.clientY || (e.touches && e.touches[0].clientY);
-            return {
-                x: (clientX - rect.left) * (canvas.width / rect.width),
-                y: (clientY - rect.top) * (canvas.height / rect.height)
-            };
-        }
-
-        function handleStart(e) {
-            if (!myTurn) return;
-            isDrawing = true;
-            const { x, y } = getCoords(e);
-            const color = currentTool === 'eraser' ? '#ffffff' : currentColor;
-            const size = currentTool === 'eraser' ? 30 : currentSize;
+            currentUser = JSON.parse(savedUser);
             
-            ctx.beginPath();
-            ctx.moveTo(x, y);
-            ctx.lineCap = 'round';
-            ctx.strokeStyle = color;
-            ctx.lineWidth = size;
-            ctx.lineTo(x, y);
-            ctx.stroke();
-
-            socket.emit('draw_event', { roomName, x, y, type: 'start', color, size });
-        }
-
-        function handleMove(e) {
-            if (!isDrawing || !myTurn) return;
-            const { x, y } = getCoords(e);
-            ctx.lineTo(x, y);
-            ctx.stroke();
+            // Initial UI sync
+            syncProfileDisplays();
+            checkAdmin();
             
-            const color = currentTool === 'eraser' ? '#ffffff' : currentColor;
-            const size = currentTool === 'eraser' ? 30 : currentSize;
-            socket.emit('draw_event', { roomName, x, y, type: 'move', color, size });
-        }
-
-        function handleEnd() {
-            if (!isDrawing) return;
-            isDrawing = false;
-            ctx.closePath();
-            socket.emit('draw_event', { roomName, type: 'end' });
-        }
-
-        canvas.addEventListener('mousedown', handleStart);
-        canvas.addEventListener('mousemove', handleMove);
-        window.addEventListener('mouseup', handleEnd);
-        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handleStart(e); });
-        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); handleMove(e); });
-        canvas.addEventListener('touchend', handleEnd);
-
-        // Chat Handlers
-        document.getElementById('chat-form').onsubmit = (e) => {
-            e.preventDefault();
-            const input = document.getElementById('chat-input');
-            if (!input.value.trim()) return;
-            socket.emit('send_message', { roomName, msg: input.value, username: document.getElementById('username-input').value });
-            input.value = '';
+            // Start sync
+            fetchUsers();
+            usersUpdateInterval = setInterval(fetchUsers, 5000);
+            
+            // Auto-heartbeat
+            setInterval(sendHeartbeat, 15000);
         };
 
-        function addChatMessage(user, msg, type) {
-            const container = document.getElementById('chat-messages');
-            const div = document.createElement('div');
-            if (type === 'system') {
-                div.className = 'flex justify-center';
-                div.innerHTML = `<span class="text-[10px] font-bold text-indigo-400/60 uppercase tracking-widest bg-indigo-500/5 px-3 py-1 rounded-full">${msg}</span>`;
-            } else {
-                const isMe = user === document.getElementById('username-input').value;
-                div.className = `flex flex-col ${isMe ? 'items-end' : 'items-start'}`;
-                div.innerHTML = `
-                    <span class="text-[10px] font-bold text-slate-500 uppercase">${user}</span>
-                    <div class="px-4 py-2 rounded-2xl text-sm ${isMe ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white/10 text-slate-200 rounded-tl-none'}">${msg}</div>
-                `;
-            }
-            container.appendChild(div);
-            container.scrollTop = container.scrollHeight;
+        function syncProfileDisplays() {
+            const pfp = currentUser.pfp || 'https://ui-avatars.com/api/?name=' + currentUser.username + '&background=random';
+            document.getElementById('top-nav-pfp').src = pfp;
+            document.getElementById('sidebar-pfp').src = pfp;
+            document.getElementById('sidebar-username').innerText = currentUser.username;
+            document.getElementById('sidebar-role').innerText = currentUser.role;
         }
 
-        function clearCanvasSync() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            // Optional: emit clear event to socket
+        function checkAdmin() {
+            if (currentUser.role === 'Developer' || currentUser.role === 'Owner') {
+                document.getElementById('admin-btn').classList.remove('hidden');
+            }
+        }
+
+        async function sendHeartbeat() {
+            try {
+                await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ identifier: currentUser.username, password: currentUser.password })
+                });
+            } catch (err) {}
+        }
+
+        function triggerPfpUpdate() {
+            document.getElementById('pfp-changer').click();
+        }
+
+        function updateGlobalPfp(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = async function(e) {
+                    const newBase64 = e.target.result;
+                    currentUser.pfp = newBase64;
+                    localStorage.setItem('chat_user', JSON.stringify(currentUser));
+                    syncProfileDisplays();
+                    // In a production app, update DB here
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function switchTab(tab) {
+            const chatView = document.getElementById('view-chat');
+            const contentView = document.getElementById('view-content');
+            
+            ['chat', 'staff', 'rules', 'news'].forEach(t => {
+                const btn = document.getElementById('tab-' + t);
+                btn.classList.remove('tab-active', 'text-white');
+                btn.classList.add('text-slate-400');
+            });
+            
+            const activeBtn = document.getElementById('tab-' + tab);
+            activeBtn.classList.add('tab-active', 'text-white');
+            activeBtn.classList.remove('text-slate-400');
+
+            if (tab === 'chat') {
+                chatView.classList.remove('hidden');
+                contentView.classList.add('hidden');
+            } else {
+                chatView.classList.add('hidden');
+                contentView.classList.remove('hidden');
+                renderContent(tab);
+            }
+        }
+
+        function renderContent(tab) {
+            const content = document.getElementById('view-content');
+            let html = "";
+            
+            if (tab === 'staff') {
+                html = `
+                    <h2 class="text-4xl font-black text-white uppercase mb-8 italic tracking-tighter">Staff Directory</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-slate-900 p-6 rounded-2xl border border-indigo-500/20">
+                            <p class="text-[10px] font-black uppercase text-indigo-400 mb-1">Founder</p>
+                            <h4 class="text-xl font-bold text-white mb-4">Core_Developer</h4>
+                            <p class="text-slate-400 text-sm leading-relaxed">Lead system architect for the ChatApp network.</p>
+                        </div>
+                    </div>
+                `;
+            } else if (tab === 'rules') {
+                html = `
+                    <h2 class="text-4xl font-black text-white uppercase mb-8 italic tracking-tighter">Community Rules</h2>
+                    <div class="space-y-6 max-w-2xl">
+                        <div class="flex gap-4 group">
+                            <span class="text-indigo-500 font-black text-xl italic group-hover:text-white transition">01.</span>
+                            <p class="text-slate-300">Respect all users. Discrimination or targeted harassment results in an immediate ban.</p>
+                        </div>
+                        <div class="flex gap-4 group">
+                            <span class="text-indigo-500 font-black text-xl italic group-hover:text-white transition">02.</span>
+                            <p class="text-slate-300">No flooding or excessive spamming in the global chat channels.</p>
+                        </div>
+                    </div>
+                `;
+            } else if (tab === 'news') {
+                html = `
+                    <h2 class="text-4xl font-black text-white uppercase mb-8 italic tracking-tighter">Updates</h2>
+                    <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl">
+                        <span class="text-[10px] bg-indigo-500 text-white px-2 py-0.5 rounded font-black uppercase mb-3 inline-block tracking-tighter">Patch v4.1.0</span>
+                        <h4 class="text-xl font-bold text-white mb-2 italic">Refined Interface</h4>
+                        <p class="text-slate-400 text-sm leading-relaxed">Simplified navigation and removed technical jargon for a smoother user experience. User profile sidebars are now active.</p>
+                    </div>
+                `;
+            }
+            content.innerHTML = html;
+        }
+
+        async function fetchUsers() {
+            try {
+                const res = await fetch('/api/users');
+                const users = await res.json();
+                
+                document.getElementById('active-count').innerText = users.filter(u => u.isOnline).length;
+                const list = document.getElementById('user-list');
+
+                list.innerHTML = users.map(u => {
+                    const pfp = u.pfp || 'https://ui-avatars.com/api/?name=' + u.username + '&background=random';
+                    const statusColor = u.isOnline ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-700';
+                    const opacity = u.isOnline ? 'opacity-100' : 'opacity-40';
+                    
+                    return `
+                        <div class="flex items-center gap-3 group ${opacity}">
+                            <div class="relative">
+                                <img src="${pfp}" class="w-10 h-10 rounded-2xl border border-slate-800 object-cover bg-slate-800">
+                                <div class="absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-slate-950 ${statusColor}"></div>
+                            </div>
+                            <div class="flex flex-col">
+                                <span class="text-[11px] font-black text-slate-200 group-hover:text-indigo-400 transition uppercase tracking-tight">${u.username}</span>
+                                <span class="text-[8px] font-black uppercase tracking-widest text-slate-600">${u.role}</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (err) {}
+        }
+
+        function sendMessage(e) {
+            e.preventDefault();
+            const input = document.getElementById('message-input');
+            const feed = document.getElementById('chat-feed');
+            const text = input.value.trim();
+            if (!text) return;
+
+            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const msg = document.createElement('div');
+            msg.className = "flex gap-3 animate-fade group";
+            
+            const pfp = currentUser.pfp || 'https://ui-avatars.com/api/?name=' + currentUser.username + '&background=random';
+
+            msg.innerHTML = `
+                <img src="${pfp}" class="w-9 h-9 rounded-xl mt-1 object-cover border border-slate-800">
+                <div class="flex flex-col">
+                    <div class="flex items-center gap-2">
+                        <span class="text-[10px] font-black text-indigo-400 uppercase tracking-tighter italic">${currentUser.username}</span>
+                        <span class="text-[8px] text-slate-700 font-bold">${time}</span>
+                    </div>
+                    <p class="text-[13px] text-slate-300 leading-relaxed font-medium">${text}</p>
+                </div>
+            `;
+
+            feed.appendChild(msg);
+            feed.scrollTop = feed.scrollHeight;
+            input.value = "";
         }
     </script>
 </body>
