@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatApp - Access Terminal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .glass-card {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+        .input-glow:focus {
+            box-shadow: 0 0 15px rgba(99, 102, 241, 0.2);
+            border-color: #6366f1;
+        }
+        .hidden-state { display: none; }
+        #pfp-preview { object-fit: cover; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-200 min-h-screen font-sans flex items-center justify-center p-6">
+
+    <!-- Background Elements -->
+    <div class="fixed inset-0 overflow-hidden pointer-events-none">
+        <div class="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-indigo-600/10 blur-[120px] rounded-full"></div>
+        <div class="absolute -bottom-[10%] -right-[10%] w-[40%] h-[40%] bg-blue-600/10 blur-[120px] rounded-full"></div>
+    </div>
+
+    <div class="max-w-md w-full relative z-10">
+        <!-- Logo -->
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-indigo-600 mb-4 shadow-xl shadow-indigo-500/20">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                </svg>
+            </div>
+            <h1 class="text-3xl font-black italic tracking-tighter text-white uppercase">ChatApp</h1>
+            <p id="auth-subtitle" class="text-xs text-slate-500 font-bold uppercase tracking-[0.2em] mt-2">Initialize Session</p>
+        </div>
+
+        <div class="glass-card rounded-[2.5rem] p-8">
+            <!-- Alert Box -->
+            <div id="alert-box" class="hidden-state mb-6 p-4 rounded-2xl border text-xs font-bold uppercase tracking-widest text-center"></div>
+
+            <!-- Login Form -->
+            <form id="login-form" onsubmit="handleAuth(event, 'login')" class="space-y-5">
+                <div>
+                    <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">Identity</label>
+                    <input type="text" name="identifier" required
+                        class="w-full bg-slate-900/50 border border-slate-800 rounded-2xl px-5 py-4 text-sm text-white focus:outline-none input-glow transition-all"
+                        placeholder="Username or Email">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">Access Key</label>
+                    <input type="password" name="password" required
+                        class="w-full bg-slate-900/50 border border-slate-800 rounded-2xl px-5 py-4 text-sm text-white focus:outline-none input-glow transition-all"
+                        placeholder="••••••••">
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black py-4 rounded-2xl transition shadow-lg shadow-indigo-500/20 uppercase text-xs tracking-[0.2em]">
+                    Enter Terminal
+                </button>
+            </form>
+
+            <!-- Signup Form (Hidden by default) -->
+            <form id="signup-form" onsubmit="handleAuth(event, 'register')" class="hidden-state space-y-5">
+                <!-- PFP Upload -->
+                <div class="flex flex-col items-center mb-6">
+                    <label class="cursor-pointer group relative">
+                        <div class="w-24 h-24 rounded-3xl bg-slate-800 border-2 border-dashed border-slate-700 flex items-center justify-center overflow-hidden group-hover:border-indigo-500 transition-all">
+                            <img id="pfp-preview" src="" class="hidden w-full h-full">
+                            <div id="pfp-placeholder" class="text-slate-500 flex flex-col items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                                <span class="text-[8px] font-black uppercase">Upload PFP</span>
+                            </div>
+                        </div>
+                        <input type="file" id="pfp-input" accept="image/*" class="hidden" onchange="previewImage(this)">
+                    </label>
+                </div>
+
+                <div class="grid grid-cols-1 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">Choose Username</label>
+                        <input type="text" name="username" required
+                            class="w-full bg-slate-900/50 border border-slate-800 rounded-2xl px-5 py-4 text-sm text-white focus:outline-none input-glow transition-all"
+                            placeholder="Ex: Ghost_99">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">Email Address</label>
+                        <input type="email" name="email" required
+                            class="w-full bg-slate-900/50 border border-slate-800 rounded-2xl px-5 py-4 text-sm text-white focus:outline-none input-glow transition-all"
+                            placeholder="name@provider.com">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">Create Access Key</label>
+                        <input type="password" name="password" required
+                            class="w-full bg-slate-900/50 border border-slate-800 rounded-2xl px-5 py-4 text-sm text-white focus:outline-none input-glow transition-all"
+                            placeholder="••••••••">
+                    </div>
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black py-4 rounded-2xl transition shadow-lg shadow-indigo-500/20 uppercase text-xs tracking-[0.2em]">
+                    Create Account
+                </button>
+            </form>
+
+            <!-- Toggle Links -->
+            <div class="mt-8 text-center">
+                <p id="toggle-text" class="text-xs text-slate-500 font-medium">
+                    New to the network? 
+                    <button onclick="toggleAuth('signup')" class="text-indigo-400 font-bold hover:underline ml-1">Register Identity</button>
+                </p>
+                <p id="toggle-back" class="text-xs text-slate-500 font-medium hidden-state">
+                    Already recognized? 
+                    <button onclick="toggleAuth('login')" class="text-indigo-400 font-bold hover:underline ml-1">Login Terminal</button>
+                </p>
+            </div>
+        </div>
+
+        <p class="text-center mt-8 text-[9px] text-slate-600 font-black uppercase tracking-[0.4em]">Secure Multi-Channel Node // v4.0.1</p>
+    </div>
+
+    <script>
+        let base64PFP = null;
+
+        function previewImage(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    base64PFP = e.target.result;
+                    document.getElementById('pfp-preview').src = e.target.result;
+                    document.getElementById('pfp-preview').classList.remove('hidden');
+                    document.getElementById('pfp-placeholder').classList.add('hidden');
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function toggleAuth(type) {
+            const loginForm = document.getElementById('login-form');
+            const signupForm = document.getElementById('signup-form');
+            const subTitle = document.getElementById('auth-subtitle');
+            const toggleText = document.getElementById('toggle-text');
+            const toggleBack = document.getElementById('toggle-back');
+            const alertBox = document.getElementById('alert-box');
+
+            alertBox.classList.add('hidden-state');
+
+            if (type === 'signup') {
+                loginForm.classList.add('hidden-state');
+                signupForm.classList.remove('hidden-state');
+                toggleText.classList.add('hidden-state');
+                toggleBack.classList.remove('hidden-state');
+                subTitle.innerText = "Register Identity";
+            } else {
+                loginForm.classList.remove('hidden-state');
+                signupForm.classList.add('hidden-state');
+                toggleText.classList.remove('hidden-state');
+                toggleBack.classList.add('hidden-state');
+                subTitle.innerText = "Initialize Session";
+            }
+        }
+
+        async function handleAuth(event, mode) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            const data = Object.fromEntries(formData.entries());
+            const alertBox = document.getElementById('alert-box');
+            
+            if (mode === 'register') {
+                data.pfp = base64PFP;
+            }
+
+            try {
+                const endpoint = mode === 'register' ? '/api/auth/register' : '/api/auth/login';
+                // Note: For identification in login, we use 'identifier'
+                const payload = mode === 'register' ? data : { identifier: data.identifier, password: data.password };
+
+                const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await res.json();
+
+                if (result.success) {
+                    // Success styling
+                    alertBox.className = "mb-6 p-4 rounded-2xl border text-xs font-bold uppercase tracking-widest text-center bg-emerald-500/10 border-emerald-500/20 text-emerald-400";
+                    alertBox.innerText = mode === 'register' ? "Account Registered" : "Access Granted";
+                    alertBox.classList.remove('hidden-state');
+                    
+                    // Save to local storage for the session
+                    localStorage.setItem('chat_user', JSON.stringify(result.user));
+                    
+                    setTimeout(() => {
+                        window.location.href = '/index.html';
+                    }, 1000);
+                } else {
+                    // Error styling
+                    alertBox.className = "mb-6 p-4 rounded-2xl border text-xs font-bold uppercase tracking-widest text-center bg-red-500/10 border-red-500/20 text-red-400";
+                    alertBox.innerText = result.message || "Auth Failed";
+                    alertBox.classList.remove('hidden-state');
+                }
+            } catch (err) {
+                alertBox.className = "mb-6 p-4 rounded-2xl border text-xs font-bold uppercase tracking-widest text-center bg-red-500/10 border-red-500/20 text-red-400";
+                alertBox.innerText = "Connection Error";
+                alertBox.classList.remove('hidden-state');
+            }
+        }
+    </script>
+</body>
+</html>
