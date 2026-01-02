@@ -1,28 +1,44 @@
 const express = require('express');
+const http = require('http');
+const path = require('path');
+
 const app = express();
-const port = 3000;
+const server = http.createServer(app);
 
-app.use(express.json({ limit: '10mb' }));
-app.use(express.static('public'));
-
-// In-memory database for demo purposes
-// In a real app, this would be a database
-let users = {}; 
+// Middleware
+app.use(express.json({ limit: '10mb' })); // Increased limit for base64 images
+app.use(express.static(path.join(__dirname, 'public')));
 
 /**
- * Automates rank assignment based on username
- * @param {string} username 
- * @returns {string} Assigned Role
+ * IN-MEMORY DATA STORE
+ * In a production app, these would be in a database like Firestore or MongoDB.
  */
-function getAutomatedRole(username) {
-    const name = username.toLowerCase().trim();
-    if (name === 'developer') return 'Developer';
-    if (name === 'joseee') return 'Owner';
-    if (name === 'system') return 'Bot';
-    return 'VIP'; // Everyone else
-}
+let messages = [];
+let users = {}; // Key: username, Value: user object
 
-// Authentication / Heartbeat Endpoint
+// Mock some initial data
+const BOT_USER = {
+    username: "SystemBot",
+    password: "bot",
+    role: "Bot",
+    pfp: null,
+    isOnline: true,
+    lastSeen: Date.now()
+};
+users["SystemBot"] = BOT_USER;
+
+messages.push({
+    username: "SystemBot",
+    role: "Bot",
+    pfp: null,
+    text: "Welcome to the Global Lobby! The frequency is open.",
+    timestamp: new Date().toISOString()
+});
+
+/**
+ * AUTH / LOGIN ENDPOINT
+ * Handles registration and login, and updates profile data (like PFP).
+ */
 app.post('/api/auth/login', (req, res) => {
     const { identifier, password, pfp } = req.body;
 
@@ -30,55 +46,109 @@ app.post('/api/auth/login', (req, res) => {
         return res.status(400).json({ success: false, message: "Missing credentials" });
     }
 
-    // Determine the correct role based on the username provided
-    const assignedRole = getAutomatedRole(identifier);
+    // Simple logic: if user doesn't exist, create them. If they do, verify password.
+    if (!users[identifier]) {
+        users[identifier] = {
+            username: identifier,
+            password: password,
+            role: "VIP", // Default role
+            pfp: pfp || null,
+            isOnline: true,
+            lastSeen: Date.now()
+        };
+    } else {
+        const user = users[identifier];
+        if (user.password !== password) {
+            return res.status(401).json({ success: false, message: "Invalid password" });
+        }
+        
+        // Update online status and PFP if provided
+        user.isOnline = true;
+        user.lastSeen = Date.now();
+        if (pfp) user.pfp = pfp; 
+    }
 
-    // Update or Create user in the global directory
-    users[identifier] = {
-        username: identifier,
-        password: password, // In production, never store/return plain text passwords
-        role: assignedRole,
-        pfp: pfp || users[identifier]?.pfp || '',
-        lastSeen: Date.now(),
-        isOnline: true
-    };
-
-    res.json({ 
-        success: true, 
-        user: { 
-            username: identifier, 
-            role: assignedRole,
-            pfp: users[identifier].pfp
-        } 
-    });
+    res.json({ success: true, user: users[identifier] });
 });
 
-// User Directory Endpoint
+/**
+ * MESSAGES ENDPOINTS
+ */
+app.get('/api/messages', (req, res) => {
+    // Return last 50 messages
+    res.json(messages.slice(-50));
+});
+
+app.post('/api/messages', (req, res) => {
+    const { username, text, role, pfp } = req.body;
+    
+    if (!username || !text) return res.status(400).send("Bad Request");
+
+    const newMessage = {
+        username,
+        text,
+        role: role || "VIP",
+        pfp: pfp || null,
+        timestamp: new Date().toISOString()
+    };
+
+    messages.push(newMessage);
+    
+    // Auto-clean old messages
+    if (messages.length > 200) messages.shift();
+
+    res.status(201).json(newMessage);
+});
+
+/**
+ * USERS DIRECTORY ENDPOINT
+ */
 app.get('/api/users', (req, res) => {
+    // Cleanup offline users based on lastSeen (15 second timeout)
     const now = Date.now();
     const userList = Object.values(users).map(u => {
-        // A user is considered offline if no heartbeat in last 30 seconds
-        const isOnline = (now - u.lastSeen) < 30000;
+        if (now - u.lastSeen > 15000) u.isOnline = false;
         return {
             username: u.username,
             role: u.role,
             pfp: u.pfp,
-            isOnline: isOnline
+            isOnline: u.isOnline
         };
     });
-
-    // Sort: Staff first, then alphabetical
-    userList.sort((a, b) => {
-        const priority = { 'Owner': 0, 'Developer': 1, 'Bot': 2, 'VIP': 3 };
-        if (priority[a.role] !== priority[b.role]) {
-            return priority[a.role] - priority[b.role];
-        }
-        return a.username.localeCompare(b.username);
-    });
-
     res.json(userList);
 });
 
-app.listen(port, () => {
-    console.log(`Chat server running at http://localhost:${port}`);
+/**
+ * PROFILE UPDATE ENDPOINT
+ */
+app.put('/api/users/profile', (req, res) => {
+    const { currentUsername, username, email, bio, profilePic } = req.body;
+    
+    if (!users[currentUsername]) {
+        return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const user = users[currentUsername];
+    
+    // Handle username change if unique
+    if (username && username !== currentUsername) {
+        if (users[username]) {
+            return res.status(400).json({ success: false, message: "Username taken" });
+        }
+        delete users[currentUsername];
+        user.username = username;
+        users[username] = user;
+    }
+
+    if (email) user.email = email;
+    if (bio) user.bio = bio;
+    if (profilePic) user.pfp = profilePic;
+
+    res.json({ success: true, user });
+});
+
+// Start the server
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`Frequency stabilized on port ${PORT}`);
 });
