@@ -13,11 +13,11 @@
         
         /* Message Animation */
         .message-entry { 
-            animation: slideIn 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards; 
+            animation: slideIn 0.2s cubic-bezier(0, 0, 0.2, 1) forwards; 
             opacity: 0;
         }
         @keyframes slideIn { 
-            from { opacity: 0; transform: translateY(8px); } 
+            from { opacity: 0; transform: translateY(5px); } 
             to { opacity: 1; transform: translateY(0); } 
         }
 
@@ -45,16 +45,18 @@
             transform: scale(1.02);
         }
 
-        /* Essential Scroll Fix: Ensure the body doesn't scroll, only the containers */
         html, body {
             height: 100%;
             overflow: hidden;
         }
+
+        /* Sending State */
+        .sending { opacity: 0.6; }
     </style>
 </head>
-<body class="bg-slate-950 text-slate-200 flex flex-col font-sans">
+<body class="bg-slate-950 text-slate-100 flex flex-col font-sans">
 
-    <!-- Top Navigation (Fixed Height) -->
+    <!-- Top Navigation -->
     <nav class="bg-slate-900/80 backdrop-blur-xl border-b border-slate-800 p-4 z-50 flex-shrink-0">
         <div class="max-w-[1600px] mx-auto flex justify-between items-center">
             <div class="flex items-center gap-6">
@@ -91,30 +93,26 @@
         </div>
     </nav>
 
-    <!-- App Layout (Full Remaining Height) -->
+    <!-- App Layout -->
     <main class="flex-1 flex max-w-[1600px] mx-auto w-full overflow-hidden">
         
-        <!-- User Sidebar (Independently Scrollable) -->
+        <!-- User Sidebar -->
         <aside class="hidden md:flex flex-col w-72 border-r border-slate-900 bg-slate-950/50 p-6 flex-shrink-0 overflow-hidden">
             <div class="flex items-center justify-between mb-6">
                 <h3 class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Active Users</h3>
             </div>
-            <div id="user-list" class="flex-1 space-y-3 overflow-y-auto custom-scrollbar pr-2">
-                <!-- User items injected here -->
-            </div>
+            <div id="user-list" class="flex-1 space-y-3 overflow-y-auto custom-scrollbar pr-2"></div>
         </aside>
 
         <!-- Chat Container -->
         <section class="flex-1 flex flex-col min-w-0 bg-slate-900/20 relative overflow-hidden">
-            
-            <!-- THE FIX: Flex-1 and Overflow-Y-Auto on the feed container -->
             <div id="chat-feed" class="flex-1 overflow-y-auto p-6 md:p-8 space-y-6 custom-scrollbar scroll-smooth">
                 <div class="flex flex-col items-center justify-center h-full opacity-20 italic text-sm text-center">
-                    Initializing communication...
+                    Establishing secure connection...
                 </div>
             </div>
 
-            <!-- Input Bar (Fixed at bottom of section) -->
+            <!-- Input Bar -->
             <div class="p-6 bg-slate-950 border-t border-slate-900 flex-shrink-0">
                 <form onsubmit="sendMessage(event)" class="max-w-4xl mx-auto relative group">
                     <input type="text" id="msg-input" autocomplete="off"
@@ -133,6 +131,7 @@
         let currentUser = null;
         let lastMessageCount = 0;
         let userTheme = null;
+        let localMessageIds = new Set();
 
         window.onload = () => {
             const saved = localStorage.getItem('chat_user');
@@ -146,10 +145,9 @@
             syncChat();
             syncUsers();
 
-            // Intervals
-            setInterval(syncChat, 1500); // Poll for messages
-            setInterval(syncUsers, 4000); // Poll for users
-            setInterval(heartbeat, 8000); // Send heartbeat
+            setInterval(syncChat, 1000); // Polling faster for responsiveness
+            setInterval(syncUsers, 4000);
+            setInterval(heartbeat, 8000);
         };
 
         function setupUI() {
@@ -184,7 +182,7 @@
                         pfp: currentUser.pfp 
                     })
                 });
-            } catch (e) { console.error("Heartbeat error"); }
+            } catch (e) {}
         }
 
         async function syncChat() {
@@ -193,9 +191,12 @@
                 const messages = await res.json();
                 const feed = document.getElementById('chat-feed');
                 
-                // Only update if message count changes to save performance and scroll position
+                // Only full re-render if count changes
                 if (messages.length !== lastMessageCount) {
                     const shouldScroll = feed.scrollTop + feed.clientHeight >= feed.scrollHeight - 100;
+                    
+                    // Clear local temporary messages once they exist on server
+                    localMessageIds.clear();
                     
                     feed.innerHTML = messages.map(m => renderMessage(m)).join('');
                     lastMessageCount = messages.length;
@@ -204,16 +205,16 @@
                         feed.scrollTop = feed.scrollHeight;
                     }
                 }
-            } catch (e) { console.error("Chat sync failed"); }
+            } catch (e) { console.error("Sync error"); }
         }
 
-        function renderMessage(m) {
+        function renderMessage(m, isTemporary = false) {
             const isMe = m.username === currentUser.username;
-            const time = new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const time = m.timestamp ? new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now';
             const accent = (isMe && userTheme) ? userTheme.accent : null;
 
             return `
-                <div class="message-entry flex items-start gap-4 ${isMe ? 'flex-row-reverse' : ''}">
+                <div class="message-entry flex items-start gap-4 ${isMe ? 'flex-row-reverse' : ''} ${isTemporary ? 'sending' : ''}">
                     <div class="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex-shrink-0 flex items-center justify-center overflow-hidden shadow-lg">
                         ${m.pfp ? `<img src="${m.pfp}" class="w-full h-full object-cover">` : `<span class="text-xs font-black text-slate-500">${m.username[0].toUpperCase()}</span>`}
                     </div>
@@ -223,9 +224,9 @@
                             <span class="role-badge ${getRoleClass(m.role)}">${m.role}</span>
                             <span class="text-[9px] text-slate-600 font-bold">${time}</span>
                         </div>
-                        <div class="${isMe ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-slate-800 text-slate-200 rounded-tl-none'} px-5 py-3 rounded-2xl shadow-xl" 
+                        <div class="${isMe ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-slate-800 text-slate-100 rounded-tl-none'} px-5 py-3 rounded-2xl shadow-xl" 
                              style="${isMe && accent ? `background-color: ${accent}` : ''}">
-                            <p class="text-[13px] leading-relaxed break-words">${m.text}</p>
+                            <p class="text-[14px] font-medium leading-relaxed break-words">${m.text}</p>
                         </div>
                     </div>
                 </div>
@@ -252,13 +253,13 @@
                                 <div class="absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-slate-950 ${u.isOnline ? 'bg-emerald-500' : 'bg-slate-700'}"></div>
                             </div>
                             <div class="flex flex-col">
-                                <span class="text-xs font-bold ${u.isOnline ? 'text-slate-200' : 'text-slate-500'}">${u.username}</span>
+                                <span class="text-xs font-bold ${u.isOnline ? 'text-slate-100' : 'text-slate-500'}">${u.username}</span>
                                 <span class="text-[8px] font-black uppercase tracking-tighter ${getRoleColor(u.role)}">${u.role}</span>
                             </div>
                         </div>
                     </div>
                 `).join('');
-            } catch (e) { console.error("User sync failed"); }
+            } catch (e) {}
         }
 
         async function sendMessage(e) {
@@ -267,18 +268,29 @@
             const text = input.value.trim();
             if (!text) return;
 
-            await fetch('/api/messages', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    username: currentUser.username,
-                    role: currentUser.role,
-                    pfp: currentUser.pfp,
-                    text: text
-                })
-            });
+            // OPTIMISTIC UPDATE: Append message immediately
+            const feed = document.getElementById('chat-feed');
+            const tempMsg = {
+                username: currentUser.username,
+                role: currentUser.role,
+                pfp: currentUser.pfp,
+                text: text,
+                timestamp: null
+            };
+            
+            feed.insertAdjacentHTML('beforeend', renderMessage(tempMsg, true));
+            feed.scrollTop = feed.scrollHeight;
             input.value = "";
-            syncChat();
+
+            try {
+                await fetch('/api/messages', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(tempMsg)
+                });
+            } catch (e) {
+                console.error("Failed to send");
+            }
         }
 
         function getRoleClass(role) {
