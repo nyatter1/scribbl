@@ -3,381 +3,321 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChatApp - Global Network</title>
+    <title>ChatApp - Global Lobby</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        .glass-panel {
-            background: rgba(15, 23, 42, 0.8);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-        }
         .custom-scrollbar::-webkit-scrollbar { width: 5px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
         
-        .tab-active {
-            background: rgba(79, 70, 229, 0.1);
-            border-left: 3px solid #6366f1;
-            color: white;
+        .message-entry { 
+            animation: slideIn 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards; 
+            opacity: 0;
+        }
+        @keyframes slideIn { 
+            from { opacity: 0; transform: translateY(8px); } 
+            to { opacity: 1; transform: translateY(0); } 
+        }
+
+        .role-badge {
+            font-size: 8px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
         
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-fade { animation: fadeIn 0.2s ease-out forwards; }
+        .bg-owner { background: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.2); }
+        .bg-dev { background: rgba(99, 102, 241, 0.1); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.2); }
+        .bg-bot { background: rgba(148, 163, 184, 0.1); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.2); }
+        .bg-vip { background: rgba(30, 41, 59, 0.5); color: #94a3b8; border: 1px solid rgba(255, 255, 255, 0.05); }
+
+        .pfp-upload-trigger {
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .pfp-upload-trigger:hover {
+            filter: brightness(1.2);
+            transform: scale(1.02);
+        }
     </style>
 </head>
-<body class="bg-slate-950 text-slate-200 min-h-screen font-sans flex flex-col overflow-hidden">
+<body class="bg-slate-950 text-slate-200 min-h-screen flex flex-col font-sans overflow-hidden">
 
     <!-- Top Navigation -->
-    <header class="bg-slate-900/80 border-b border-slate-800 p-3 px-6 flex justify-between items-center z-50 backdrop-blur-md">
-        <div class="flex items-center gap-3">
-            <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                </svg>
-            </div>
-            <h1 class="text-lg font-black italic tracking-tighter text-white uppercase">ChatApp</h1>
-        </div>
-
-        <div class="flex items-center gap-4">
-            <div id="admin-btn" class="hidden">
-                <a href="/admin.html" class="text-[10px] font-black uppercase tracking-widest text-red-500 hover:text-red-400">Admin Panel</a>
-            </div>
-            <button onclick="triggerPfpUpdate()" class="relative group">
-                <img id="top-nav-pfp" src="" class="w-9 h-9 rounded-full border-2 border-slate-700 group-hover:border-indigo-500 transition-all object-cover bg-slate-800">
-                <div class="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                    </svg>
+    <nav class="bg-slate-900/80 backdrop-blur-xl border-b border-slate-800 p-4 z-50">
+        <div class="max-w-[1600px] mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-6">
+                <div class="flex flex-col">
+                    <h1 class="text-xl font-black italic tracking-tighter text-white uppercase leading-none">ChatApp</h1>
+                    <span class="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em]">Multiplayer Lobby</span>
                 </div>
-            </button>
-            <input type="file" id="pfp-changer" accept="image/*" class="hidden" onchange="updateGlobalPfp(this)">
-        </div>
-    </header>
-
-    <div class="flex flex-grow overflow-hidden">
-        <!-- Left Sidebar: Tabs -->
-        <aside class="w-64 bg-slate-900/30 border-r border-slate-800 flex flex-col">
-            <div class="p-6 space-y-1">
-                <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-4 ml-2 italic">Navigation</h3>
-                
-                <button onclick="switchTab('chat')" id="tab-chat" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition tab-active">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z" />
-                    </svg>
-                    Global Chat
-                </button>
-                
-                <button onclick="switchTab('staff')" id="tab-staff" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-slate-400 hover:bg-slate-800/50 transition">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                    </svg>
-                    Staff Members
-                </button>
-
-                <button onclick="switchTab('rules')" id="tab-rules" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-slate-400 hover:bg-slate-800/50 transition">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                    </svg>
-                    Rules
-                </button>
-
-                <button onclick="switchTab('news')" id="tab-news" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-slate-400 hover:bg-slate-800/50 transition">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
-                    </svg>
-                    News
-                </button>
-            </div>
-        </aside>
-
-        <!-- Middle: Main Content -->
-        <main class="flex-grow flex flex-col bg-slate-950">
-            <!-- Chat View -->
-            <div id="view-chat" class="flex-grow flex flex-col h-full">
-                <div id="chat-feed" class="flex-grow p-6 overflow-y-auto custom-scrollbar space-y-4">
-                    <div class="text-center py-10 opacity-30">
-                        <p class="text-[10px] font-black uppercase tracking-[0.2em] italic">Start of message history</p>
-                    </div>
+                <div class="h-8 w-px bg-slate-800 hidden md:block"></div>
+                <div class="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
+                    <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                    <div id="online-count" class="text-[10px] font-black text-emerald-500 uppercase">0 Users Live</div>
                 </div>
-                
-                <div class="p-4 bg-slate-900/50 border-t border-slate-800">
-                    <form onsubmit="sendMessage(event)" class="max-w-4xl mx-auto flex gap-3">
-                        <input type="text" id="message-input" 
-                            class="flex-grow bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition-all placeholder:text-slate-600"
-                            placeholder="Type something..." autocomplete="off">
-                        <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white p-3 px-5 rounded-xl transition shadow-lg shadow-indigo-500/20 active:scale-95">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+            </div>
+
+            <div class="flex items-center gap-4">
+                <!-- Clickable Profile Area to change PFP -->
+                <div onclick="document.getElementById('hidden-pfp-input').click()" class="pfp-upload-trigger flex items-center gap-3 bg-slate-800/50 border border-slate-700/50 pl-1 pr-4 py-1 rounded-full hover:bg-slate-800 group relative">
+                    <div id="nav-pfp-container" class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden border border-slate-600 relative">
+                        <img id="nav-pfp" src="" class="w-full h-full object-cover hidden">
+                        <span id="nav-initial" class="text-xs font-bold">?</span>
+                        <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                             </svg>
-                        </button>
-                    </form>
-                </div>
-            </div>
-
-            <!-- Other Views -->
-            <div id="view-content" class="hidden flex-grow p-10 overflow-y-auto custom-scrollbar animate-fade">
-            </div>
-        </main>
-
-        <!-- Right Sidebar: User Profile -->
-        <aside class="w-72 bg-slate-900/30 border-l border-slate-800 flex flex-col">
-            <div class="p-6">
-                <!-- User Profile Display -->
-                <div class="flex flex-col items-center mb-8 pb-8 border-b border-slate-800/50">
-                    <div class="relative mb-3">
-                        <img id="sidebar-pfp" src="" class="w-24 h-24 rounded-3xl object-cover border-2 border-slate-800 bg-slate-800 shadow-2xl">
-                        <div id="self-status-indicator" class="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 border-4 border-slate-950 rounded-full transition-colors"></div>
+                        </div>
                     </div>
-                    <h2 id="sidebar-username" class="text-xl font-black text-white uppercase tracking-tight">User</h2>
-                    <span id="sidebar-role" class="text-[9px] font-black uppercase tracking-widest text-indigo-500">Member</span>
+                    <div class="flex flex-col">
+                        <span id="nav-name" class="text-[11px] font-black text-white uppercase tracking-tight">User</span>
+                        <span id="nav-role" class="text-[8px] font-bold text-slate-500 uppercase tracking-widest leading-none">VIP</span>
+                    </div>
                 </div>
-
-                <div class="flex items-center justify-between mb-6">
-                    <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 italic">User Directory</h3>
-                    <span id="active-count" class="text-[9px] bg-indigo-500/10 px-2 py-0.5 rounded font-bold text-indigo-400">0</span>
-                </div>
+                <!-- Hidden Input -->
+                <input type="file" id="hidden-pfp-input" accept="image/*" class="hidden" onchange="handlePfpUpdate(event)">
                 
-                <div id="user-list" class="space-y-3">
-                </div>
+                <div class="h-6 w-px bg-slate-800"></div>
+                <button onclick="logout()" class="p-2 text-slate-500 hover:text-red-400 transition" title="Logout">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- App Layout -->
+    <main class="flex-1 flex max-w-[1600px] mx-auto w-full overflow-hidden">
+        
+        <!-- User Sidebar -->
+        <aside class="hidden md:flex flex-col w-72 border-r border-slate-900 bg-slate-950/50 p-6">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Live Directory</h3>
+            </div>
+            <div id="user-list" class="flex-1 space-y-3 overflow-y-auto custom-scrollbar pr-2">
+                <!-- User items injected here -->
+            </div>
+            
+            <div class="mt-6 pt-6 border-t border-slate-900">
+                <a href="/secret.html" class="flex items-center gap-3 p-3 rounded-2xl bg-slate-900/50 border border-slate-800 hover:border-indigo-500/50 transition group">
+                    <div class="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-indigo-400 group-hover:scale-110 transition">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 00-2 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                    </div>
+                    <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">The Vault</span>
+                </a>
             </div>
         </aside>
-    </div>
+
+        <!-- Chat Container -->
+        <section class="flex-1 flex flex-col min-w-0 bg-slate-900/20 relative">
+            <div id="chat-feed" class="flex-1 overflow-y-auto p-6 md:p-8 space-y-6 custom-scrollbar">
+                <div class="flex flex-col items-center justify-center h-full opacity-20 italic text-sm text-center">
+                    Connecting to global frequency...
+                </div>
+            </div>
+
+            <!-- Input Bar -->
+            <div class="p-6 bg-slate-950 border-t border-slate-900">
+                <form onsubmit="sendMessage(event)" class="max-w-4xl mx-auto relative group">
+                    <input type="text" id="msg-input" autocomplete="off"
+                        class="w-full bg-slate-900 border border-slate-800 rounded-2xl pl-6 pr-24 py-5 text-sm text-white focus:outline-none focus:border-indigo-500 transition-all shadow-2xl"
+                        placeholder="Say something to the world...">
+                    
+                    <button type="submit" id="send-btn" class="absolute right-2 top-2 bottom-2 bg-indigo-600 hover:bg-indigo-500 text-white px-6 rounded-xl font-black text-[10px] uppercase tracking-widest transition shadow-lg">
+                        Send
+                    </button>
+                </form>
+            </div>
+        </section>
+    </main>
 
     <script>
         let currentUser = null;
-        let globalUsersList = [];
-        let heartbeatTimer = null;
+        let lastMessageTimestamp = 0;
 
         window.onload = () => {
-            const savedUser = localStorage.getItem('chat_user');
-            if (!savedUser) return window.location.href = '/login.html';
-            
-            currentUser = JSON.parse(savedUser);
-            syncProfileDisplays();
-            checkAdmin();
-            
-            fetchUsers();
-            setInterval(fetchUsers, 5000);
-            
-            startHeartbeat();
-            
-            document.addEventListener('visibilitychange', () => {
-                const indicator = document.getElementById('self-status-indicator');
-                if (document.visibilityState === 'visible') {
-                    indicator.classList.remove('bg-slate-700');
-                    indicator.classList.add('bg-emerald-500');
-                    startHeartbeat();
-                } else {
-                    indicator.classList.remove('bg-emerald-500');
-                    indicator.classList.add('bg-slate-700');
-                    stopHeartbeat();
-                }
-            });
+            const saved = localStorage.getItem('chat_user');
+            if (!saved) return window.location.href = '/login.html';
+            currentUser = JSON.parse(saved);
+
+            setupUI();
+            syncChat();
+            syncUsers();
+
+            setInterval(syncChat, 2000);
+            setInterval(syncUsers, 5000);
+            setInterval(heartbeat, 10000);
         };
 
-        function startHeartbeat() {
-            if (heartbeatTimer) clearInterval(heartbeatTimer);
-            sendHeartbeat();
-            heartbeatTimer = setInterval(sendHeartbeat, 15000);
-        }
-
-        function stopHeartbeat() {
-            clearInterval(heartbeatTimer);
-            heartbeatTimer = null;
-        }
-
-        function syncProfileDisplays() {
-            const pfp = currentUser.pfp || 'https://ui-avatars.com/api/?name=' + currentUser.username + '&background=random';
-            document.getElementById('top-nav-pfp').src = pfp;
-            document.getElementById('sidebar-pfp').src = pfp;
-            document.getElementById('sidebar-username').innerText = currentUser.username;
-            document.getElementById('sidebar-role').innerText = currentUser.role;
-        }
-
-        function checkAdmin() {
-            if (currentUser.role === 'Developer' || currentUser.role === 'Owner') {
-                document.getElementById('admin-btn').classList.remove('hidden');
+        function setupUI() {
+            document.getElementById('nav-name').innerText = currentUser.username;
+            document.getElementById('nav-role').innerText = currentUser.role || 'VIP';
+            
+            const img = document.getElementById('nav-pfp');
+            const initial = document.getElementById('nav-initial');
+            
+            if (currentUser.pfp) {
+                img.src = currentUser.pfp;
+                img.classList.remove('hidden');
+                initial.classList.add('hidden');
+            } else {
+                img.classList.add('hidden');
+                initial.classList.remove('hidden');
+                initial.innerText = currentUser.username[0].toUpperCase();
             }
         }
 
-        async function sendHeartbeat() {
-            try {
-                if (document.visibilityState !== 'visible') return;
+        async function handlePfpUpdate(e) {
+            const file = e.target.files[0];
+            if (!file) return;
 
+            const reader = new FileReader();
+            reader.onload = async (event) => {
+                const base64 = event.target.result;
+                
+                // Update local memory
+                currentUser.pfp = base64;
+                localStorage.setItem('chat_user', JSON.stringify(currentUser));
+                
+                // Refresh UI
+                setupUI();
+                
+                // Notify server immediately via heartbeat
+                await heartbeat();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function heartbeat() {
+            try {
                 const res = await fetch('/api/auth/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
                         identifier: currentUser.username, 
                         password: currentUser.password,
-                        pfp: currentUser.pfp || '' // Send our current PFP so server stores it
+                        pfp: currentUser.pfp 
                     })
                 });
-                
                 const data = await res.json();
                 if (data.success && data.user.role !== currentUser.role) {
                     currentUser.role = data.user.role;
                     localStorage.setItem('chat_user', JSON.stringify(currentUser));
-                    syncProfileDisplays();
-                    checkAdmin();
+                    document.getElementById('nav-role').innerText = currentUser.role;
                 }
-            } catch (err) {}
+            } catch (e) { console.error("Heartbeat failed"); }
         }
 
-        function triggerPfpUpdate() {
-            document.getElementById('pfp-changer').click();
-        }
-
-        function updateGlobalPfp(input) {
-            if (input.files && input.files[0]) {
-                const reader = new FileReader();
-                reader.onload = async function(e) {
-                    const newBase64 = e.target.result;
-                    currentUser.pfp = newBase64;
-                    localStorage.setItem('chat_user', JSON.stringify(currentUser));
-                    syncProfileDisplays();
-                    // Send to server immediately via heartbeat logic
-                    sendHeartbeat();
-                }
-                reader.readAsDataURL(input.files[0]);
-            }
-        }
-
-        function switchTab(tab) {
-            const chatView = document.getElementById('view-chat');
-            const contentView = document.getElementById('view-content');
-            
-            ['chat', 'staff', 'rules', 'news'].forEach(t => {
-                const btn = document.getElementById('tab-' + t);
-                btn.classList.remove('tab-active', 'text-white');
-                btn.classList.add('text-slate-400');
-            });
-            
-            const activeBtn = document.getElementById('tab-' + tab);
-            activeBtn.classList.add('tab-active', 'text-white');
-            activeBtn.classList.remove('text-slate-400');
-
-            if (tab === 'chat') {
-                chatView.classList.remove('hidden');
-                contentView.classList.add('hidden');
-            } else {
-                chatView.classList.add('hidden');
-                contentView.classList.remove('hidden');
-                renderContent(tab);
-            }
-        }
-
-        function renderContent(tab) {
-            const content = document.getElementById('view-content');
-            let html = "";
-            
-            if (tab === 'staff') {
-                const staff = globalUsersList.filter(u => u.role === 'Developer' || u.role === 'Owner');
-                html = `
-                    <h2 class="text-4xl font-black text-white uppercase mb-8 italic tracking-tighter">Staff Directory</h2>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        ${staff.length > 0 ? staff.map(s => `
-                            <div class="bg-slate-900 p-6 rounded-2xl border border-indigo-500/20 flex items-center gap-4">
-                                <img src="${s.pfp || 'https://ui-avatars.com/api/?name=' + s.username}" class="w-16 h-16 rounded-xl border border-slate-800 object-cover">
-                                <div>
-                                    <p class="text-[10px] font-black uppercase text-indigo-400 mb-1">${s.role}</p>
-                                    <h4 class="text-xl font-bold text-white mb-1 flex items-center gap-2">
-                                        ${s.username}
-                                        <span class="w-2 h-2 rounded-full ${s.isOnline ? 'bg-emerald-500' : 'bg-slate-700'}"></span>
-                                    </h4>
-                                    <p class="text-slate-500 text-[10px] uppercase font-bold tracking-widest">${s.isOnline ? 'Active on node' : 'Disconnected'}</p>
-                                </div>
-                            </div>
-                        `).join('') : '<p class="text-slate-500 italic">No staff members detected in node directory.</p>'}
-                    </div>
-                `;
-            } else if (tab === 'rules') {
-                html = `
-                    <h2 class="text-4xl font-black text-white uppercase mb-8 italic tracking-tighter">Community Rules</h2>
-                    <div class="space-y-6 max-w-2xl">
-                        <div class="flex gap-4 group">
-                            <span class="text-indigo-500 font-black text-xl italic group-hover:text-white transition">01.</span>
-                            <p class="text-slate-300 font-medium">Respect all users. Discrimination or targeted harassment results in an immediate ban.</p>
-                        </div>
-                        <div class="flex gap-4 group">
-                            <span class="text-indigo-500 font-black text-xl italic group-hover:text-white transition">02.</span>
-                            <p class="text-slate-300 font-medium">No flooding or excessive spamming in the global chat channels.</p>
-                        </div>
-                    </div>
-                `;
-            } else if (tab === 'news') {
-                html = `
-                    <h2 class="text-4xl font-black text-white uppercase mb-8 italic tracking-tighter">Updates</h2>
-                    <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl">
-                        <span class="text-[10px] bg-indigo-500 text-white px-2 py-0.5 rounded font-black uppercase mb-3 inline-block tracking-tighter">System Alert</span>
-                        <h4 class="text-xl font-bold text-white mb-2 italic">Real-time Presence v5.0</h4>
-                        <p class="text-slate-400 text-sm leading-relaxed">We've deployed a dynamic presence system. Your online status now accurately reflects whether you are focused on this tab or browsing elsewhere.</p>
-                    </div>
-                `;
-            }
-            content.innerHTML = html;
-        }
-
-        async function fetchUsers() {
+        async function syncChat() {
             try {
-                const res = await fetch('/api/users');
-                const users = await res.json();
-                globalUsersList = users;
+                const res = await fetch('/api/messages');
+                const messages = await res.json();
+                const feed = document.getElementById('chat-feed');
                 
-                document.getElementById('active-count').innerText = users.filter(u => u.isOnline).length;
-                const list = document.getElementById('user-list');
+                if (messages.length === 0) return;
 
-                list.innerHTML = users.map(u => {
-                    const pfp = u.pfp || 'https://ui-avatars.com/api/?name=' + u.username + '&background=random';
-                    const statusColor = u.isOnline ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-700';
-                    const opacity = u.isOnline ? 'opacity-100' : 'opacity-40';
-                    
-                    return `
-                        <div class="flex items-center gap-3 group ${opacity} transition-opacity duration-500">
-                            <div class="relative">
-                                <img src="${pfp}" class="w-10 h-10 rounded-2xl border border-slate-800 object-cover bg-slate-800">
-                                <div class="absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-slate-950 ${statusColor}"></div>
-                            </div>
-                            <div class="flex flex-col">
-                                <span class="text-[11px] font-black text-slate-200 group-hover:text-indigo-400 transition uppercase tracking-tight">${u.username}</span>
-                                <span class="text-[8px] font-black uppercase tracking-widest text-slate-600">${u.role}</span>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-
-                if (document.getElementById('tab-staff').classList.contains('tab-active')) {
-                    renderContent('staff');
+                const newest = new Date(messages[messages.length - 1].timestamp).getTime();
+                if (newest > lastMessageTimestamp) {
+                    feed.innerHTML = messages.map(m => renderMessage(m)).join('');
+                    feed.scrollTop = feed.scrollHeight;
+                    lastMessageTimestamp = newest;
                 }
-            } catch (err) {}
+            } catch (e) { console.error("Chat sync failed"); }
         }
 
-        function sendMessage(e) {
-            e.preventDefault();
-            const input = document.getElementById('message-input');
-            const feed = document.getElementById('chat-feed');
-            const text = input.value.trim();
-            if (!text) return;
-
-            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            const pfp = currentUser.pfp || 'https://ui-avatars.com/api/?name=' + currentUser.username + '&background=random';
-
-            const msgHtml = `
-                <div class="flex gap-3 animate-fade group">
-                    <img src="${pfp}" class="w-9 h-9 rounded-xl mt-1 object-cover border border-slate-800">
-                    <div class="flex flex-col">
-                        <div class="flex items-center gap-2">
-                            <span class="text-[10px] font-black text-indigo-400 uppercase tracking-tighter italic">${currentUser.username}</span>
-                            <span class="text-[8px] text-slate-700 font-bold">${time}</span>
+        function renderMessage(m) {
+            const isMe = m.username === currentUser.username;
+            const time = new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            return `
+                <div class="message-entry flex items-start gap-4 ${isMe ? 'flex-row-reverse' : ''}">
+                    <div class="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex-shrink-0 flex items-center justify-center overflow-hidden shadow-lg">
+                        ${m.pfp ? `<img src="${m.pfp}" class="w-full h-full object-cover">` : `<span class="text-xs font-black text-slate-500">${m.username[0].toUpperCase()}</span>`}
+                    </div>
+                    <div class="flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[75%] md:max-w-[60%]">
+                        <div class="flex items-center gap-2 mb-1.5">
+                            <span class="text-[10px] font-black uppercase tracking-widest text-white">${m.username}</span>
+                            <span class="role-badge ${getRoleClass(m.role)}">${m.role}</span>
+                            <span class="text-[9px] text-slate-600 font-bold">${time}</span>
                         </div>
-                        <p class="text-[13px] text-slate-300 leading-relaxed font-medium">${text}</p>
+                        <div class="${isMe ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-slate-800 text-slate-200 rounded-tl-none'} px-5 py-3 rounded-2xl shadow-xl">
+                            <p class="text-[13px] leading-relaxed">${m.text}</p>
+                        </div>
                     </div>
                 </div>
             `;
+        }
 
-            feed.insertAdjacentHTML('beforeend', msgHtml);
-            feed.scrollTop = feed.scrollHeight;
+        async function syncUsers() {
+            try {
+                const res = await fetch('/api/users');
+                const users = await res.json();
+                const list = document.getElementById('user-list');
+                const count = document.getElementById('online-count');
+                
+                count.innerText = `${users.filter(u => u.isOnline).length} Users Live`;
+
+                list.innerHTML = users.map(u => `
+                    <div class="flex items-center justify-between p-3 rounded-2xl bg-slate-900/30 border border-transparent hover:border-slate-800 transition">
+                        <div class="flex items-center gap-3">
+                            <div class="relative">
+                                <div class="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center overflow-hidden border border-slate-700">
+                                    ${u.pfp ? `<img src="${u.pfp}" class="w-full h-full object-cover">` : `<span class="text-[10px] text-slate-500 font-bold">${u.username[0]}</span>`}
+                                </div>
+                                <div class="absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-slate-950 ${u.isOnline ? 'bg-emerald-500' : 'bg-slate-700'}"></div>
+                            </div>
+                            <div class="flex flex-col">
+                                <span class="text-xs font-bold text-slate-200">${u.username}</span>
+                                <span class="text-[8px] font-black uppercase tracking-tighter ${getRoleColor(u.role)}">${u.role}</span>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) { console.error("User sync failed"); }
+        }
+
+        async function sendMessage(e) {
+            e.preventDefault();
+            const input = document.getElementById('msg-input');
+            const text = input.value.trim();
+            if (!text) return;
+
+            await fetch('/api/messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username: currentUser.username,
+                    role: currentUser.role,
+                    pfp: currentUser.pfp,
+                    text: text
+                })
+            });
             input.value = "";
+            syncChat();
+        }
+
+        function getRoleClass(role) {
+            if (role === 'Owner') return 'bg-owner';
+            if (role === 'Developer') return 'bg-dev';
+            if (role === 'Bot') return 'bg-bot';
+            return 'bg-vip';
+        }
+
+        function getRoleColor(role) {
+            if (role === 'Owner') return 'text-amber-500';
+            if (role === 'Developer') return 'text-indigo-400';
+            if (role === 'Bot') return 'text-slate-400';
+            return 'text-slate-600';
+        }
+
+        function logout() {
+            localStorage.removeItem('chat_user');
+            window.location.href = '/login.html';
         }
     </script>
 </body>
