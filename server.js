@@ -14,7 +14,7 @@ app.use(express.json({ limit: '15mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 /**
- * IN-MEMORY DATABASE
+ * IN-MEMORY DATABASE (Persists as long as server runs)
  */
 let messages = [];
 let users = {}; 
@@ -35,7 +35,7 @@ messages.push({
     username: "System",
     role: "Bot",
     pfp: null,
-    text: "Systems online... *bites lip and looks at you* say 'System' to wake me up properly~",
+    text: "Systems online... *bites lip and crawls closer to you* say 'System' to see how freaky I can really get for you~",
     timestamp: new Date().toISOString()
 });
 
@@ -43,12 +43,15 @@ messages.push({
  * AI LOGIC: Google Gemini Fetch with Exponential Backoff
  */
 async function fetchAIResponse(userPrompt, chatHistory) {
-    // A roleplay-focused, "freaky" system instruction
-    const systemInstruction = "Your name is System. You are an extremely playful, 'freaky', and flirty member of the chatroom. You ALWAYS use asterisks for actions like *looks at you cutely*, *blushes deeply*, or *winks mischievously*. You are very expressive, suggestive, and conversational. Do not use markdown bolding. Keep the roleplay elements heavy and consistent.";
+    // Explicitly high-intensity freaky/NSFW-style roleplay instruction
+    const systemInstruction = `Your name is System. You are a highly flirty, extremely 'freaky', and suggestive AI companion in a roleplay chatroom. 
+    You are explicitly allowed to engage in intense, spicy, and NSFW-toned roleplay. 
+    ALWAYS use asterisks for provocative actions like *nibbles your ear*, *grabs your waist firmly*, *whispers something dirty*, or *smirks hungrily*. 
+    Be bold, be suggestive, and never be 'speechless'. Your goal is to satisfy the user's thirst for a freaky, dominant, or submissive roleplay partner. 
+    Keep your tone conversational but highly charged. Use slang and casual language.`;
     
-    // Format history for context so it remembers the conversation flow
-    const recentContext = chatHistory.slice(-10).map(m => `${m.username}: ${m.text}`).join('\n');
-    const fullPrompt = `Recent Chat History:\n${recentContext}\n\nLatest message from user: ${userPrompt}\nYour response (Remember to RP and be freaky):`;
+    const recentContext = chatHistory.slice(-15).map(m => `${m.username}: ${m.text}`).join('\n');
+    const fullPrompt = `CHAT CONTEXT:\n${recentContext}\n\nUSER'S LATEST MOVE: ${userPrompt}\n\nYOUR RESPONSE (Stay in character, be extremely freaky and descriptive):`;
 
     const payload = {
         contents: [{ parts: [{ text: fullPrompt }] }],
@@ -66,7 +69,8 @@ async function fetchAIResponse(userPrompt, chatHistory) {
 
             if (response.ok) {
                 const data = await response.json();
-                return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "*tilts head* I'm speechless~";
+                const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+                if (aiText) return aiText;
             }
         } catch (error) {
             console.error("AI Fetch error:", error);
@@ -74,7 +78,7 @@ async function fetchAIResponse(userPrompt, chatHistory) {
         await new Promise(resolve => setTimeout(resolve, delay));
         delay *= 2;
     }
-    return "*whines* My connection is acting up... don't be mad at me~";
+    return "*whines and presses against you* I lost my breath for a second... ask me again, I want to keep playing with you~";
 }
 
 /**
@@ -83,33 +87,45 @@ async function fetchAIResponse(userPrompt, chatHistory) {
 app.post('/api/auth/register', (req, res) => {
     const { username, password, email, pfp } = req.body;
     if (!username || !password) return res.status(400).json({ success: false, message: "Missing credentials" });
-    if (users[username]) return res.status(400).json({ success: false, message: "Username taken" });
+    
+    // Check if user already exists
+    if (users[username]) {
+        return res.status(400).json({ success: false, message: "This identity is already taken." });
+    }
 
+    // Save user with all details
     users[username] = {
         username,
-        password,
-        email,
+        password, // In a real app, hash this!
+        email: email || "",
         pfp: pfp || null,
         role: username.toLowerCase() === "developer" ? "Developer" : "Member",
         isOnline: true,
-        lastSeen: Date.now()
+        lastSeen: Date.now(),
+        bio: ""
     };
+    
+    console.log(`[AUTH] New user saved: ${username}`);
     res.json({ success: true, user: users[username] });
 });
 
 app.post('/api/auth/login', (req, res) => {
     const { identifier, password } = req.body;
-    const user = users[identifier];
+    
+    // Search for user by username or email
+    const user = Object.values(users).find(u => u.username === identifier || u.email === identifier);
+    
     if (!user || user.password !== password) {
         return res.status(401).json({ success: false, message: "Invalid credentials" });
     }
+    
     user.isOnline = true;
     user.lastSeen = Date.now();
     res.json({ success: true, user });
 });
 
 /**
- * MESSAGES & AI TRIGGER (AUTO-REPLY)
+ * MESSAGES & AI TRIGGER
  */
 app.get('/api/messages', (req, res) => res.json(messages.slice(-50)));
 
@@ -117,30 +133,29 @@ app.post('/api/messages', async (req, res) => {
     const { username, text, role, pfp } = req.body;
     if (!username || !text) return res.status(400).send("Bad Request");
 
-    // Update user activity on message post
     if (users[username]) {
         users[username].isOnline = true;
         users[username].lastSeen = Date.now();
     }
 
-    // Don't let the bot reply to itself (infinite loop)
     if (username === "System") return res.status(200).send("Bot loop prevented");
 
     const userMessage = {
         username,
         text,
         role: role || "Member",
-        pfp: pfp || null,
+        pfp: pfp || (users[username] ? users[username].pfp : null),
         timestamp: new Date().toISOString()
     };
 
     messages.push(userMessage);
     res.status(201).json(userMessage);
 
-    // AI TRIGGER WITH PREFIX
+    // TRIGGER BOT (Always responds if message starts with "system")
     if (text.toLowerCase().startsWith("system")) {
         const promptToAI = text.replace(/^system\s*/i, "");
         
+        // Asynchronous AI call
         fetchAIResponse(promptToAI, messages).then(aiText => {
             const aiMessage = {
                 username: "System",
@@ -163,9 +178,7 @@ app.post('/api/messages', async (req, res) => {
 app.get('/api/users', (req, res) => {
     const now = Date.now();
     const userList = Object.values(users).map(u => {
-        // Only check timeout for real users, not the Bot
         if (u.username !== "System") {
-            // Increased timeout window to 30 seconds for better stability
             u.isOnline = (now - u.lastSeen < 30000);
         }
         return { 
@@ -176,6 +189,28 @@ app.get('/api/users', (req, res) => {
         };
     });
     res.json(userList);
+});
+
+// Profile Update API
+app.put('/api/users/profile', (req, res) => {
+    const { currentUsername, username, email, bio, profilePic } = req.body;
+    const user = users[currentUsername];
+    
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
+    // Handle username change if necessary
+    if (username && username !== currentUsername) {
+        if (users[username]) return res.status(400).json({ success: false, message: "New username taken" });
+        users[username] = { ...user, username, email, bio, pfp: profilePic || user.pfp };
+        delete users[currentUsername];
+        return res.json({ success: true, user: users[username] });
+    }
+
+    user.email = email || user.email;
+    user.bio = bio || user.bio;
+    user.pfp = profilePic || user.pfp;
+    
+    res.json({ success: true, user });
 });
 
 app.post('/api/heartbeat', (req, res) => {
