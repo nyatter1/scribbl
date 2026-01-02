@@ -1,20 +1,31 @@
 {
-"name": "scribble-server",
-"version": "1.0.0",
-"description": "Real-time drawing game server for Scribble.io",
-"main": "server.js",
-"scripts": {
-"start": "node server.js",
-"dev": "nodemon server.js"
-},
-"dependencies": {
-"cors": "^2.8.5",
-"express": "^4.18.2",
-"socket.io": "^4.7.2"
-},
-"engines": {
-"node": ">=14.0.0"
-},
-"author": "",
-"license": "ISC"
+  "name": "vikvok-live-chat",
+  "version": "1.0.0",
+  "description": "A live chat application with simple username entry, rank management, and persistent storage",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "mongoose": "^7.6.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "keywords": [
+    "chat",
+    "live",
+    "mongoose",
+    "express",
+    "admin-panel"
+  ],
+  "author": "ChatApp Team",
+  "license": "ISC"
 }
