@@ -1,1 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scribble.io | Live Multiplayer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; overflow: hidden; }
+        .canvas-container { aspect-ratio: 4/3; }
+        .custom-scroll::-webkit-scrollbar { width: 4px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-[#0f172a] text-slate-100">
 
+    <!-- MENU SCREEN -->
+    <div id="menu-screen" class="min-h-screen w-full flex items-center justify-center p-4 relative">
+        <div class="absolute inset-0 overflow-hidden pointer-events-none">
+            <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-600/20 blur-[120px] rounded-full"></div>
+            <div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/20 blur-[120px] rounded-full"></div>
+        </div>
+
+        <main class="relative w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 gap-6 z-10">
+            <!-- Left Profile -->
+            <section class="lg:col-span-5 flex flex-col gap-6">
+                <div class="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[40px] p-8 flex flex-col items-center shadow-2xl relative overflow-hidden">
+                    <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 to-pink-500"></div>
+                    <div id="avatar-preview" class="w-48 h-48 rounded-full shadow-2xl flex items-center justify-center text-8xl mb-8 border-8 border-white/5 bg-[#FF6B6B]">
+                        ✏️
+                    </div>
+                    <div class="w-full space-y-4">
+                        <label class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1 block">Artist Tag</label>
+                        <input type="text" id="username-input" value="SketchaLot" class="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-xl font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all">
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Actions -->
+            <section class="lg:col-span-7 flex flex-col gap-6">
+                <header class="flex items-center justify-between px-2">
+                    <h1 class="text-5xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-500">
+                        SCRIBBLE <span class="text-indigo-500 not-italic">.io</span>
+                    </h1>
+                </header>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <button onclick="joinGame('Global')" class="group relative overflow-hidden bg-indigo-600 hover:bg-indigo-500 transition-all rounded-[32px] p-8 text-left shadow-xl active:scale-95">
+                        <i data-lucide="play" class="w-12 h-12 mb-4 text-white"></i>
+                        <h2 class="text-2xl font-black text-white">QUICK PLAY</h2>
+                    </button>
+                    <button onclick="openCreateModal()" class="group relative overflow-hidden bg-white/5 hover:bg-white/10 border border-white/10 transition-all rounded-[32px] p-8 text-left active:scale-95">
+                        <i data-lucide="plus-circle" class="w-12 h-12 mb-4 text-emerald-400"></i>
+                        <h2 class="text-2xl font-black text-white">PRIVATE ROOM</h2>
+                    </button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- GAME SCREEN -->
+    <div id="game-screen" class="hidden h-screen w-full flex flex-col overflow-hidden">
+        <header class="h-16 border-b border-white/10 bg-white/5 backdrop-blur-md flex items-center justify-between px-6 shrink-0">
+            <div class="flex items-center gap-4">
+                <h1 class="text-2xl font-black italic tracking-tighter">SCRIBBLE<span class="text-indigo-500">.io</span></h1>
+                <div class="h-8 w-[1px] bg-white/10"></div>
+                <div class="flex flex-col">
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-widest leading-none">Room</span>
+                    <span id="display-room-name" class="font-bold text-indigo-400">Loading...</span>
+                </div>
+            </div>
+            
+            <div id="game-timer-container" class="flex items-center gap-6">
+                <div class="bg-black/40 px-6 py-2 rounded-full border border-white/5 flex items-center gap-3">
+                   <span class="text-xs font-bold text-slate-500 uppercase">Word:</span>
+                   <span id="word-display" class="text-xl font-mono tracking-[0.3em] font-bold text-white">_ _ _ _ _ _</span>
+                </div>
+                <div id="timer" class="text-2xl font-black text-indigo-500 bg-indigo-500/10 w-12 h-12 rounded-xl flex items-center justify-center border border-indigo-500/20">60</div>
+            </div>
+
+            <button onclick="location.reload()" class="p-2 hover:bg-white/10 rounded-xl transition-colors"><i data-lucide="x"></i></button>
+        </header>
+
+        <div class="flex-1 flex overflow-hidden p-4 gap-4">
+            <!-- Sidebar -->
+            <aside class="w-64 flex flex-col gap-4 shrink-0">
+                <div class="bg-white/5 border border-white/10 rounded-3xl flex-1 flex flex-col overflow-hidden">
+                    <div class="p-4 border-b border-white/10 flex items-center gap-2">
+                        <i data-lucide="trophy" class="w-5 h-5 text-yellow-500"></i>
+                        <h2 class="font-bold uppercase text-sm tracking-widest text-slate-400">Players</h2>
+                    </div>
+                    <div id="player-list" class="flex-1 overflow-y-auto p-2 space-y-1 custom-scroll"></div>
+                </div>
+            </aside>
+
+            <!-- Canvas Area -->
+            <main class="flex-1 flex flex-col gap-4 relative">
+                <div class="flex-1 bg-white rounded-[32px] shadow-2xl overflow-hidden relative">
+                    <div id="waiting-overlay" class="absolute inset-0 z-20 bg-slate-900/90 backdrop-blur-md flex flex-col items-center justify-center text-center p-8">
+                        <i data-lucide="users" class="w-16 h-16 text-indigo-500 mb-6 animate-pulse"></i>
+                        <h2 class="text-4xl font-black mb-2">WAITING FOR OPPONENT</h2>
+                        <p class="text-slate-400 mb-6">Game starts automatically when 2 players join.</p>
+                        <div class="bg-white/5 px-6 py-3 rounded-2xl border border-white/10 font-bold text-indigo-400">
+                            <span id="player-count">1</span> / 2 Players
+                        </div>
+                    </div>
+                    <canvas id="game-canvas" width="1200" height="900" class="w-full h-full cursor-crosshair touch-none"></canvas>
+                    
+                    <!-- Toolbar (Only visible to drawer) -->
+                    <div id="toolbar" class="hidden absolute bottom-6 left-1/2 -translate-x-1/2 bg-slate-900/95 border border-white/10 p-2 rounded-2xl flex items-center gap-2 shadow-2xl">
+                        <button onclick="setTool('pencil')" id="tool-pencil" class="p-3 bg-indigo-500 text-white rounded-xl"><i data-lucide="pencil"></i></button>
+                        <button onclick="setTool('eraser')" id="tool-eraser" class="p-3 text-slate-400 hover:bg-white/5 rounded-xl"><i data-lucide="eraser"></i></button>
+                        <div class="w-[1px] h-6 bg-white/10 mx-1"></div>
+                        <div id="color-palette" class="flex gap-1.5 px-2"></div>
+                        <div class="w-[1px] h-6 bg-white/10 mx-1"></div>
+                        <button onclick="clearCanvasSync()" class="p-3 hover:bg-red-500/20 text-red-400 rounded-xl"><i data-lucide="trash-2"></i></button>
+                    </div>
+                </div>
+            </main>
+
+            <!-- Chat Area -->
+            <aside class="w-80 flex flex-col gap-4 shrink-0">
+                <div class="bg-white/5 border border-white/10 rounded-3xl flex-1 flex flex-col overflow-hidden">
+                    <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-4 custom-scroll"></div>
+                    <form id="chat-form" class="p-4 bg-black/20">
+                        <div class="relative">
+                            <input type="text" id="chat-input" placeholder="Guess the word..." class="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-4 pr-12 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                            <button type="submit" class="absolute right-2 top-1.5 p-2 bg-indigo-500 rounded-xl"><i data-lucide="send" class="w-4 h-4"></i></button>
+                        </div>
+                    </form>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <script>
+        // REPLACE THIS URL with your Render Server URL
+        const SERVER_URL = 'http://localhost:3001'; 
+        const socket = io(SERVER_URL);
+        
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        let isDrawing = false;
+        let myTurn = false;
+        let currentTool = 'pencil';
+        let currentColor = '#000000';
+        let currentSize = 5;
+        let roomName = '';
+
+        lucide.createIcons();
+
+        // Color Palette Init
+        const paintColors = ['#000000', '#ffffff', '#ef4444', '#f97316', '#facc15', '#22c55e', '#3b82f6', '#6366f1', '#a855f7', '#ec4899'];
+        const paletteContainer = document.getElementById('color-palette');
+        paintColors.forEach(color => {
+            const btn = document.createElement('button');
+            btn.className = 'w-7 h-7 rounded-full border-2 border-transparent hover:scale-110 transition-transform';
+            btn.style.backgroundColor = color;
+            btn.onclick = () => { currentColor = color; setTool('pencil'); };
+            paletteContainer.appendChild(btn);
+        });
+
+        function joinGame(targetRoom) {
+            roomName = targetRoom === 'Global' ? 'Public Lobby' : targetRoom;
+            const username = document.getElementById('username-input').value;
+            const avatarColor = document.getElementById('avatar-preview').style.backgroundColor;
+
+            document.getElementById('menu-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+            document.getElementById('display-room-name').innerText = roomName;
+
+            socket.emit('join_room', { roomName, username, avatarColor });
+        }
+
+        function setTool(tool) {
+            currentTool = tool;
+            document.getElementById('tool-pencil').className = tool === 'pencil' ? 'p-3 bg-indigo-500 text-white rounded-xl' : 'p-3 text-slate-400 hover:bg-white/5 rounded-xl';
+            document.getElementById('tool-eraser').className = tool === 'eraser' ? 'p-3 bg-indigo-500 text-white rounded-xl' : 'p-3 text-slate-400 hover:bg-white/5 rounded-xl';
+        }
+
+        // Socket Logic
+        socket.on('room_update', (data) => {
+            document.getElementById('player-count').innerText = data.players.length;
+            const list = document.getElementById('player-list');
+            list.innerHTML = data.players.map(p => `
+                <div class="flex items-center justify-between p-3 rounded-2xl ${p.id === socket.id ? 'bg-indigo-500/20 border border-indigo-500/30' : 'hover:bg-white/5'}">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-full border-2 border-white/10 flex items-center justify-center text-xs" style="background-color: ${p.avatarColor}">${p.username[0]}</div>
+                        <span class="font-bold truncate w-24">${p.username}</span>
+                    </div>
+                    <span class="text-sm font-black text-indigo-400">${p.points}</span>
+                </div>
+            `).join('');
+        });
+
+        socket.on('game_start', ({ drawerId, word }) => {
+            myTurn = socket.id === drawerId;
+            document.getElementById('waiting-overlay').classList.add('hidden');
+            document.getElementById('word-display').innerText = myTurn ? word : word.split('').map(() => '_ ').join('');
+            if (myTurn) document.getElementById('toolbar').classList.remove('hidden');
+            addChatMessage('System', 'Game started! 2 players present.', 'system');
+        });
+
+        socket.on('remote_draw', ({ x, y, type, color, size }) => {
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.strokeStyle = color;
+            ctx.lineWidth = size;
+            if (type === 'start') { ctx.beginPath(); ctx.moveTo(x, y); }
+            else if (type === 'move') { ctx.lineTo(x, y); ctx.stroke(); }
+            else { ctx.closePath(); }
+        });
+
+        socket.on('receive_message', (data) => {
+            addChatMessage(data.user, data.msg, data.type);
+        });
+
+        // Drawing Handlers
+        function getCoords(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+            const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+            return {
+                x: (clientX - rect.left) * (canvas.width / rect.width),
+                y: (clientY - rect.top) * (canvas.height / rect.height)
+            };
+        }
+
+        function handleStart(e) {
+            if (!myTurn) return;
+            isDrawing = true;
+            const { x, y } = getCoords(e);
+            const color = currentTool === 'eraser' ? '#ffffff' : currentColor;
+            const size = currentTool === 'eraser' ? 30 : currentSize;
+            
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = color;
+            ctx.lineWidth = size;
+            ctx.lineTo(x, y);
+            ctx.stroke();
+
+            socket.emit('draw_event', { roomName, x, y, type: 'start', color, size });
+        }
+
+        function handleMove(e) {
+            if (!isDrawing || !myTurn) return;
+            const { x, y } = getCoords(e);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            
+            const color = currentTool === 'eraser' ? '#ffffff' : currentColor;
+            const size = currentTool === 'eraser' ? 30 : currentSize;
+            socket.emit('draw_event', { roomName, x, y, type: 'move', color, size });
+        }
+
+        function handleEnd() {
+            if (!isDrawing) return;
+            isDrawing = false;
+            ctx.closePath();
+            socket.emit('draw_event', { roomName, type: 'end' });
+        }
+
+        canvas.addEventListener('mousedown', handleStart);
+        canvas.addEventListener('mousemove', handleMove);
+        window.addEventListener('mouseup', handleEnd);
+        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handleStart(e); });
+        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); handleMove(e); });
+        canvas.addEventListener('touchend', handleEnd);
+
+        // Chat Handlers
+        document.getElementById('chat-form').onsubmit = (e) => {
+            e.preventDefault();
+            const input = document.getElementById('chat-input');
+            if (!input.value.trim()) return;
+            socket.emit('send_message', { roomName, msg: input.value, username: document.getElementById('username-input').value });
+            input.value = '';
+        };
+
+        function addChatMessage(user, msg, type) {
+            const container = document.getElementById('chat-messages');
+            const div = document.createElement('div');
+            if (type === 'system') {
+                div.className = 'flex justify-center';
+                div.innerHTML = `<span class="text-[10px] font-bold text-indigo-400/60 uppercase tracking-widest bg-indigo-500/5 px-3 py-1 rounded-full">${msg}</span>`;
+            } else {
+                const isMe = user === document.getElementById('username-input').value;
+                div.className = `flex flex-col ${isMe ? 'items-end' : 'items-start'}`;
+                div.innerHTML = `
+                    <span class="text-[10px] font-bold text-slate-500 uppercase">${user}</span>
+                    <div class="px-4 py-2 rounded-2xl text-sm ${isMe ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white/10 text-slate-200 rounded-tl-none'}">${msg}</div>
+                `;
+            }
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function clearCanvasSync() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // Optional: emit clear event to socket
+        }
+    </script>
+</body>
+</html>
