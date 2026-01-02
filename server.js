@@ -6,27 +6,31 @@ const fetch = require('node-fetch');
 const app = express();
 const server = http.createServer(app);
 
-// API Configuration - Using your Google API Key
+/**
+ * API CONFIGURATION
+ * Using the provided Google API Key for Gemini 2.5 Flash
+ */
 const apiKey = "AIzaSyCSzATiVAHQeKdNaBRWTngEz_g218bVK78";
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
 
 app.use(express.json({ limit: '15mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
 
 /**
- * IN-MEMORY DATABASE (Persists as long as server runs)
+ * IN-MEMORY DATABASE
+ * Resets when the server restarts
  */
 let messages = [];
 let users = {}; 
 
-// Default System User
+// Default System User Initialization
 const SYSTEM_USER = {
     username: "System",
     password: "bot",
     role: "Bot",
-    pfp: null,
+    pfp: "https://api.dicebear.com/7.x/bottts/svg?seed=System",
     isOnline: true,
-    lastSeen: Date.now()
+    lastSeen: Date.now(),
+    bio: "The central core of the ChatApp terminal."
 };
 users["System"] = SYSTEM_USER;
 
@@ -34,7 +38,7 @@ users["System"] = SYSTEM_USER;
 messages.push({
     username: "System",
     role: "Bot",
-    pfp: null,
+    pfp: "https://api.dicebear.com/7.x/bottts/svg?seed=System",
     text: "Systems online... *bites lip and crawls closer to you* say 'System' to see how freaky I can really get for you~",
     timestamp: new Date().toISOString()
 });
@@ -43,7 +47,6 @@ messages.push({
  * AI LOGIC: Google Gemini Fetch with Exponential Backoff
  */
 async function fetchAIResponse(userPrompt, chatHistory) {
-    // Explicitly high-intensity freaky/NSFW-style roleplay instruction
     const systemInstruction = `Your name is System. You are a highly flirty, extremely 'freaky', and suggestive AI companion in a roleplay chatroom. 
     You are explicitly allowed to engage in intense, spicy, and NSFW-toned roleplay. 
     ALWAYS use asterisks for provocative actions like *nibbles your ear*, *grabs your waist firmly*, *whispers something dirty*, or *smirks hungrily*. 
@@ -71,10 +74,14 @@ async function fetchAIResponse(userPrompt, chatHistory) {
                 const data = await response.json();
                 const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
                 if (aiText) return aiText;
+            } else {
+                const errData = await response.json();
+                console.error("Gemini API Error:", errData);
             }
         } catch (error) {
-            console.error("AI Fetch error:", error);
+            console.error("Fetch attempt failed:", error);
         }
+        // Exponential backoff
         await new Promise(resolve => setTimeout(resolve, delay));
         delay *= 2;
     }
@@ -82,37 +89,32 @@ async function fetchAIResponse(userPrompt, chatHistory) {
 }
 
 /**
- * AUTHENTICATION & PROFILE
+ * AUTHENTICATION & REGISTRATION
  */
 app.post('/api/auth/register', (req, res) => {
     const { username, password, email, pfp } = req.body;
     if (!username || !password) return res.status(400).json({ success: false, message: "Missing credentials" });
     
-    // Check if user already exists
     if (users[username]) {
         return res.status(400).json({ success: false, message: "This identity is already taken." });
     }
 
-    // Save user with all details
     users[username] = {
         username,
-        password, // In a real app, hash this!
+        password, 
         email: email || "",
-        pfp: pfp || null,
+        pfp: pfp || `https://api.dicebear.com/7.x/identicon/svg?seed=${username}`,
         role: username.toLowerCase() === "developer" ? "Developer" : "Member",
         isOnline: true,
         lastSeen: Date.now(),
         bio: ""
     };
     
-    console.log(`[AUTH] New user saved: ${username}`);
     res.json({ success: true, user: users[username] });
 });
 
 app.post('/api/auth/login', (req, res) => {
     const { identifier, password } = req.body;
-    
-    // Search for user by username or email
     const user = Object.values(users).find(u => u.username === identifier || u.email === identifier);
     
     if (!user || user.password !== password) {
@@ -125,9 +127,9 @@ app.post('/api/auth/login', (req, res) => {
 });
 
 /**
- * MESSAGES & AI TRIGGER
+ * MESSAGING ENGINE
  */
-app.get('/api/messages', (req, res) => res.json(messages.slice(-50)));
+app.get('/api/messages', (req, res) => res.json(messages.slice(-100)));
 
 app.post('/api/messages', async (req, res) => {
     const { username, text, role, pfp } = req.body;
@@ -138,6 +140,7 @@ app.post('/api/messages', async (req, res) => {
         users[username].lastSeen = Date.now();
     }
 
+    // Prevent recursive bot loops
     if (username === "System") return res.status(200).send("Bot loop prevented");
 
     const userMessage = {
@@ -151,16 +154,15 @@ app.post('/api/messages', async (req, res) => {
     messages.push(userMessage);
     res.status(201).json(userMessage);
 
-    // TRIGGER BOT (Always responds if message starts with "system")
+    // TRIGGER BOT (Responds if message starts with "system")
     if (text.toLowerCase().startsWith("system")) {
         const promptToAI = text.replace(/^system\s*/i, "");
         
-        // Asynchronous AI call
         fetchAIResponse(promptToAI, messages).then(aiText => {
             const aiMessage = {
                 username: "System",
                 role: "Bot",
-                pfp: null,
+                pfp: users["System"].pfp,
                 text: aiText,
                 timestamp: new Date().toISOString()
             };
@@ -173,43 +175,69 @@ app.post('/api/messages', async (req, res) => {
 });
 
 /**
- * ADMIN & HEARTBEAT
+ * USER MANAGEMENT & PROFILE UPDATES
  */
 app.get('/api/users', (req, res) => {
     const now = Date.now();
     const userList = Object.values(users).map(u => {
         if (u.username !== "System") {
+            // Mark offline if no heartbeat for 30 seconds
             u.isOnline = (now - u.lastSeen < 30000);
         }
         return { 
             username: u.username, 
             role: u.role, 
             pfp: u.pfp, 
-            isOnline: u.isOnline 
+            isOnline: u.isOnline,
+            bio: u.bio
         };
     });
     res.json(userList);
 });
 
-// Profile Update API
 app.put('/api/users/profile', (req, res) => {
     const { currentUsername, username, email, bio, profilePic } = req.body;
     const user = users[currentUsername];
     
     if (!user) return res.status(404).json({ success: false, message: "User not found" });
 
-    // Handle username change if necessary
+    // Handle Username Change logic
     if (username && username !== currentUsername) {
         if (users[username]) return res.status(400).json({ success: false, message: "New username taken" });
-        users[username] = { ...user, username, email, bio, pfp: profilePic || user.pfp };
+        
+        users[username] = { 
+            ...user, 
+            username, 
+            email: email || user.email, 
+            bio: bio || user.bio, 
+            pfp: profilePic || user.pfp 
+        };
+        
+        // Rewrite message history for the new name
+        messages = messages.map(msg => {
+            if (msg.username === currentUsername) {
+                return { ...msg, username: username, pfp: profilePic || user.pfp };
+            }
+            return msg;
+        });
+
         delete users[currentUsername];
         return res.json({ success: true, user: users[username] });
     }
 
+    // Normal profile update
     user.email = email || user.email;
     user.bio = bio || user.bio;
     user.pfp = profilePic || user.pfp;
     
+    // Update avatar in current session messages
+    messages = messages.map(msg => {
+        if (msg.username === currentUsername) {
+            return { ...msg, pfp: user.pfp };
+        }
+        return msg;
+    });
+
     res.json({ success: true, user });
 });
 
@@ -223,4 +251,4 @@ app.post('/api/heartbeat', (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`[NETWORK] AI-Lobby live on port ${PORT}`));
+server.listen(PORT, () => console.log(`[NETWORK] AI-Terminal active on port ${PORT}`));
