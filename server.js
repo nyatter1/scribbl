@@ -16,6 +16,12 @@ const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemi
 app.use(express.json({ limit: '15mb' }));
 
 /**
+ * STATIC FILE SERVING
+ * This fixes the "Cannot GET /index.html" error by serving files from the public folder
+ */
+app.use(express.static(path.join(__dirname, 'public')));
+
+/**
  * IN-MEMORY DATABASE
  * Resets when the server restarts
  */
@@ -248,6 +254,14 @@ app.post('/api/heartbeat', (req, res) => {
         users[username].lastSeen = Date.now();
         res.json({ success: true });
     } else res.status(404).json({ success: false });
+});
+
+/**
+ * CATCH-ALL ROUTE
+ * Redirects all non-API GET requests to the index.html for the frontend to handle
+ */
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 const PORT = process.env.PORT || 3000;
