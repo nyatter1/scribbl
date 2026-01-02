@@ -46,11 +46,7 @@
         </div>
         
         <div class="flex items-center gap-4">
-            <button onclick="window.location.href='/themes.html'" class="p-2 hover:bg-slate-800 rounded-lg transition text-slate-400">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.172-1.172a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 115.656-5.656l1.172 1.172z" />
-                </svg>
-            </button>
+            <!-- Themes button removed -->
             <div id="self-profile-trigger" class="flex items-center gap-3 cursor-pointer p-1 pr-3 hover:bg-slate-800 rounded-full transition border border-transparent hover:border-slate-700">
                 <img id="header-pfp" src="" class="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 object-cover">
                 <span id="header-username" class="text-xs font-bold text-white">@username</span>
@@ -272,7 +268,6 @@
 
         /** PROFILE LOGIC **/
         async function openProfile(username) {
-            // Find full user data in activeUsers
             const user = activeUsers.find(u => u.username === username);
             if (!user) return;
 
@@ -284,12 +279,10 @@
             document.getElementById('view-role').innerText = user.role;
             document.getElementById('view-bio').innerText = user.bio || "No bio recorded in this identity node.";
             
-            // Set banner color (using a fallback logic since banner isn't in backend yet, we use a default or simulated)
             document.getElementById('view-banner').style.background = `linear-gradient(to right, #6366f1, #a855f7)`;
 
             if (username === currentUser.username) {
                 editBtn.classList.remove('hidden');
-                // Prepare edit inputs
                 document.getElementById('edit-username').value = currentUser.username;
                 document.getElementById('edit-bio').value = currentUser.bio || "";
                 document.getElementById('edit-pfp-preview').src = user.pfp || `https://ui-avatars.com/api/?name=${user.username}&background=random`;
@@ -348,23 +341,19 @@
 
                 const result = await res.json();
                 if (result.success) {
-                    // Update Local State
                     currentUser = { ...currentUser, ...result.user };
                     localStorage.setItem('chat_user', JSON.stringify(currentUser));
                     
-                    // Update Header
                     document.getElementById('header-username').innerText = `@${currentUser.username}`;
                     document.getElementById('header-pfp').src = currentUser.pfp || `https://ui-avatars.com/api/?name=${currentUser.username}&background=random`;
                     
-                    // Switch back to view mode and refresh
                     openProfile(currentUser.username);
                     syncChat();
                 } else {
-                    alert(result.message || "Failed to update profile.");
+                    console.error(result.message || "Failed to update profile.");
                 }
             } catch (err) {
                 console.error("Save Error", err);
-                alert("Network error while saving identity.");
             }
         }
     </script>
