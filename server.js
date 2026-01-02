@@ -1,119 +1,133 @@
 const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
 const cors = require('cors');
-
+const path = require('path');
 const app = express();
+const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
+app.use(express.json({ limit: '50mb' })); // Higher limit for PFP base64 strings
+app.use(express.static('public'));
 
-// Health Check for Render deployment
-app.get('/', (req, res) => {
-  res.send('Scribble.io Server is Running');
+/**
+ * Mock Database State
+ * In a production environment, this would be handled by MongoDB/Mongoose.
+ */
+let users = [
+    { 
+        username: "Core_Developer", 
+        password: "admin_password", 
+        role: "Developer", 
+        isOnline: true, 
+        lastSeen: Date.now(),
+        pfp: "" 
+    }
+];
+
+// Helper to find user
+const findUser = (username) => users.find(u => u.username.toLowerCase() === username.toLowerCase());
+
+/**
+ * AUTHENTICATION ENDPOINTS
+ */
+
+// Login / Heartbeat
+app.post('/api/auth/login', (req, res) => {
+    const { identifier, password } = req.body;
+    const user = findUser(identifier);
+
+    if (user && user.password === password) {
+        user.isOnline = true;
+        user.lastSeen = Date.now();
+        return res.json({ success: true, user });
+    }
+    res.status(401).json({ success: false, message: "Invalid credentials" });
 });
 
-const server = http.createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: "*", // In production, replace with your GitHub Pages URL
-    methods: ["GET", "POST"]
-  }
-});
-
-const ROOM_CAPACITY = 2;
-const rooms = new Map();
-
-io.on('connection', (socket) => {
-  console.log('User connected:', socket.id);
-
-  socket.on('join_room', ({ roomName, username, avatarColor }) => {
-    let room = rooms.get(roomName);
-
-    if (!room) {
-      room = {
-        name: roomName,
-        players: [],
-        gameState: 'waiting',
-        canvasData: []
-      };
-      rooms.set(roomName, room);
+// Registration
+app.post('/api/auth/register', (req, res) => {
+    const { username, password } = req.body;
+    
+    if (findUser(username)) {
+        return res.status(400).json({ success: false, message: "Username already exists" });
     }
 
-    // Check if player is already in room (prevent double joining on refresh)
-    if (room.players.find(p => p.id === socket.id)) return;
-
-    if (room.players.length >= ROOM_CAPACITY) {
-      socket.emit('error_msg', 'Room is full!');
-      return;
-    }
-
-    const newPlayer = {
-      id: socket.id,
-      username: username || 'Guest',
-      avatarColor: avatarColor || '#6366f1',
-      points: 0,
-      isDrawing: false
+    const newUser = {
+        username,
+        password,
+        role: "Member",
+        isOnline: true,
+        lastSeen: Date.now(),
+        pfp: ""
     };
-
-    room.players.push(newPlayer);
-    socket.join(roomName);
-
-    // Notify everyone in the room
-    io.to(roomName).emit('room_update', room);
-
-    // Start game if capacity reached (Max 2 people)
-    if (room.players.length === ROOM_CAPACITY) {
-      room.gameState = 'drawing';
-      room.players[0].isDrawing = true; 
-      
-      io.to(roomName).emit('game_start', {
-        drawerId: room.players[0].id,
-        word: 'PENGUIN' // This should be randomized from a list
-      });
-      
-      io.to(roomName).emit('receive_message', { 
-        user: 'System', 
-        msg: 'Room full! Starting game...', 
-        type: 'system' 
-      });
-    }
-  });
-
-  socket.on('draw_event', ({ roomName, x, y, type, color, size }) => {
-    // Broadcast to others in the room
-    socket.to(roomName).emit('remote_draw', { x, y, type, color, size });
-  });
-
-  socket.on('send_message', ({ roomName, msg, username }) => {
-    io.to(roomName).emit('receive_message', { user: username, msg, type: 'user' });
-  });
-
-  socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.id);
-    rooms.forEach((room, roomName) => {
-      const index = room.players.findIndex(p => p.id === socket.id);
-      if (index !== -1) {
-        room.players.splice(index, 1);
-        
-        if (room.players.length === 0) {
-          rooms.delete(roomName);
-        } else {
-          room.gameState = 'waiting';
-          io.to(roomName).emit('room_update', room);
-          io.to(roomName).emit('receive_message', { 
-            user: 'System', 
-            msg: 'Opponent left. Waiting for a new player...', 
-            type: 'system' 
-          });
-        }
-      }
-    });
-  });
+    
+    users.push(newUser);
+    res.json({ success: true, user: newUser });
 });
 
-// Use the port provided by Render or default to 3001
-const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => {
-  console.log(`Scribble server running on port ${PORT}`);
+/**
+ * USER DIRECTORY ENDPOINTS
+ */
+
+// Get all users (sanitized for public view)
+app.get('/api/users', (req, res) => {
+    const sanitizedUsers = users.map(u => ({
+        username: u.username,
+        role: u.role,
+        isOnline: (Date.now() - u.lastSeen) < 30000, // Offline if no heartbeat for 30s
+        pfp: u.pfp
+    }));
+    res.json(sanitizedUsers);
+});
+
+/**
+ * ADMIN ENDPOINTS
+ */
+
+// Update User Rank
+app.put('/api/admin/rank', (req, res) => {
+    const { adminUsername, targetUsername, newRole } = req.body;
+    
+    const admin = findUser(adminUsername);
+    const target = findUser(targetUsername);
+
+    if (!admin || (admin.role !== 'Developer' && admin.role !== 'Owner')) {
+        return res.status(403).json({ success: false, message: "Insufficient permissions" });
+    }
+
+    if (target) {
+        target.role = newRole;
+        return res.json({ success: true, message: `Rank updated for ${targetUsername}` });
+    }
+    
+    res.status(404).json({ success: false, message: "Target user not found" });
+});
+
+// Delete User
+app.delete('/api/admin/users/:username', (req, res) => {
+    const adminUsername = req.query.adminUsername;
+    const targetUsername = req.params.username;
+    
+    const admin = findUser(adminUsername);
+    if (!admin || (admin.role !== 'Developer' && admin.role !== 'Owner')) {
+        return res.status(403).json({ success: false, message: "Unauthorized purge" });
+    }
+
+    const initialLength = users.length;
+    users = users.filter(u => u.username.toLowerCase() !== targetUsername.toLowerCase());
+
+    if (users.length < initialLength) {
+        res.json({ success: true, message: "User purged from database" });
+    } else {
+        res.status(404).json({ success: false, message: "User not found" });
+    }
+});
+
+// Serve frontend
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.listen(PORT, () => {
+    console.log(`ChatApp Server running on port ${PORT}`);
 });
