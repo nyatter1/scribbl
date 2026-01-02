@@ -1,155 +1,108 @@
 const express = require('express');
-const cors = require('cors');
+const bodyParser = require('body-parser');
 const path = require('path');
-const mongoose = require('mongoose');
-require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(cors());
-app.use(express.json({ limit: '50mb' })); // Higher limit for PFP base64 strings
-app.use(express.static('public'));
+app.use(bodyParser.json({ limit: '50mb' }));
+app.use(express.static(path.join(__dirname, 'public')));
 
-// Database Connection
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/chatapp';
-mongoose.connect(MONGODB_URI)
-    .then(() => console.log('Connected to MongoDB'))
-    .catch(err => console.error('Could not connect to MongoDB:', err));
+// In-memory database (reset on server restart)
+// In a production environment, this would be replaced with Firestore or MongoDB
+let users = [
+    { username: 'System', password: 'password', role: 'Owner', isOnline: true, lastActive: Date.now(), pfp: '' }
+];
 
-// User Schema
-const userSchema = new mongoose.Schema({
-    username: { type: String, required: true, unique: true },
-    password: { type: String, required: true },
-    role: { type: String, default: 'Member' },
-    pfp: { type: String, default: '' },
-    lastSeen: { type: Date, default: Date.now }
-});
+// Helper: Check if user is online based on heartbeat (30 second timeout)
+function getOnlineUsers() {
+    const now = Date.now();
+    return users.map(u => ({
+        ...u,
+        isOnline: (now - u.lastActive) < 30000 
+    }));
+}
 
-const User = mongoose.model('User', userSchema);
-
-/**
- * AUTHENTICATION ENDPOINTS
- */
-
-// Login / Heartbeat
-app.post('/api/auth/login', async (req, res) => {
+// API: Authentication / Login / Heartbeat
+app.post('/api/auth/login', (req, res) => {
     const { identifier, password } = req.body;
-    try {
-        const user = await User.findOne({ username: new RegExp(`^${identifier}$`, 'i') });
-
-        if (user && user.password === password) {
-            user.lastSeen = Date.now();
-            await user.save();
-            return res.json({ success: true, user });
-        }
-        res.status(401).json({ success: false, message: "Invalid credentials" });
-    } catch (err) {
-        res.status(500).json({ success: false, message: "Server error during login" });
-    }
-});
-
-// Registration
-app.post('/api/auth/register', async (req, res) => {
-    const { username, password } = req.body;
     
-    try {
-        const existingUser = await User.findOne({ username: new RegExp(`^${username}$`, 'i') });
-        if (existingUser) {
-            return res.status(400).json({ success: false, message: "Username already exists" });
+    let user = users.find(u => u.username === identifier);
+    
+    if (user) {
+        if (user.password === password) {
+            user.lastActive = Date.now();
+            return res.json({ success: true, user });
+        } else {
+            return res.status(401).json({ success: false, message: "Invalid password." });
         }
-
-        const newUser = new User({
-            username,
-            password,
-            role: "Member",
-            lastSeen: Date.now(),
-            pfp: ""
-        });
-        
-        await newUser.save();
-        res.json({ success: true, user: newUser });
-    } catch (err) {
-        res.status(500).json({ success: false, message: "Error creating account" });
+    } else {
+        // Simple auto-registration for demo purposes
+        const newUser = {
+            username: identifier,
+            password: password,
+            role: 'Member',
+            lastActive: Date.now(),
+            pfp: ''
+        };
+        users.push(newUser);
+        return res.json({ success: true, user: newUser });
     }
 });
 
-/**
- * USER DIRECTORY ENDPOINTS
- */
-
-// Get all users (sanitized for public view)
-app.get('/api/users', async (req, res) => {
-    try {
-        const users = await User.find({});
-        const sanitizedUsers = users.map(u => ({
-            username: u.username,
-            role: u.role,
-            isOnline: (Date.now() - new Date(u.lastSeen).getTime()) < 30000, // Offline if no heartbeat for 30s
-            pfp: u.pfp
-        }));
-        res.json(sanitizedUsers);
-    } catch (err) {
-        res.status(500).json({ success: false, message: "Error fetching users" });
-    }
+// API: Get All Users (with online status)
+app.get('/api/users', (req, res) => {
+    res.json(getOnlineUsers().map(u => ({
+        username: u.username,
+        role: u.role,
+        isOnline: u.isOnline,
+        pfp: u.pfp
+    })));
 });
 
-/**
- * ADMIN ENDPOINTS
- */
-
-// Update User Rank
-app.put('/api/admin/rank', async (req, res) => {
+// API: Update Rank (Admin Only)
+app.put('/api/admin/rank', (req, res) => {
     const { adminUsername, targetUsername, newRole } = req.body;
     
-    try {
-        const admin = await User.findOne({ username: adminUsername });
-        if (!admin || (admin.role !== 'Developer' && admin.role !== 'Owner')) {
-            return res.status(403).json({ success: false, message: "Insufficient permissions" });
-        }
-
-        const target = await User.findOne({ username: targetUsername });
-        if (target) {
-            target.role = newRole;
-            await target.save();
-            return res.json({ success: true, message: `Rank updated for ${targetUsername}` });
-        }
-        
-        res.status(404).json({ success: false, message: "Target user not found" });
-    } catch (err) {
-        res.status(500).json({ success: false, message: "Rank update failed" });
+    const admin = users.find(u => u.username === adminUsername);
+    if (!admin || (admin.role !== 'Owner' && admin.role !== 'Developer')) {
+        return res.status(403).json({ success: false, message: "Forbidden: Admin access required." });
     }
+
+    const target = users.find(u => u.username === targetUsername);
+    if (!target) {
+        return res.status(404).json({ success: false, message: "User not found." });
+    }
+
+    target.role = newRole;
+    res.json({ success: true, message: `Rank of ${targetUsername} updated to ${newRole}.` });
 });
 
-// Delete User
-app.delete('/api/admin/users/:username', async (req, res) => {
+// API: Delete User (Admin Only)
+app.delete('/api/admin/users/:username', (req, res) => {
     const adminUsername = req.query.adminUsername;
     const targetUsername = req.params.username;
-    
-    try {
-        const admin = await User.findOne({ username: adminUsername });
-        if (!admin || (admin.role !== 'Developer' && admin.role !== 'Owner')) {
-            return res.status(403).json({ success: false, message: "Unauthorized purge" });
-        }
 
-        const result = await User.deleteOne({ username: new RegExp(`^${targetUsername}$`, 'i') });
+    const admin = users.find(u => u.username === adminUsername);
+    if (!admin || (admin.role !== 'Owner' && admin.role !== 'Developer')) {
+        return res.status(403).json({ success: false, message: "Forbidden." });
+    }
 
-        if (result.deletedCount > 0) {
-            res.json({ success: true, message: "User purged from database" });
-        } else {
-            res.status(404).json({ success: false, message: "User not found" });
-        }
-    } catch (err) {
-        res.status(500).json({ success: false, message: "Purge failed" });
+    const index = users.findIndex(u => u.username === targetUsername);
+    if (index !== -1) {
+        users.splice(index, 1);
+        res.json({ success: true });
+    } else {
+        res.status(404).json({ success: false });
     }
 });
 
-// Serve frontend
+// Serve Frontend
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.listen(PORT, () => {
-    console.log(`ChatApp Server running on port ${PORT}`);
+    console.log(`Chat Server running on port ${PORT}`);
 });
