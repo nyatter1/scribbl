@@ -2,43 +2,46 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const bodyParser = require('body-parser');
+const path = require('path');
 
 const app = express();
-// Default port or environment variable
 const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
-app.use(bodyParser.json({ limit: '10mb' })); // Increased limit for base64 profile pics
+app.use(bodyParser.json({ limit: '10mb' }));
+
+// 1. SERVE STATIC FILES
+// This allows the browser to find index.html, login.html, etc.
+app.use(express.static(path.join(__dirname))); 
+// If your files are in a 'public' folder, use: app.use(express.static(path.join(__dirname, 'public')));
 
 // --- MongoDB Configuration ---
-// Make sure to set MONGODB_URI in your environment variables
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/terminal_chat";
 
 mongoose.connect(MONGODB_URI)
-  .then(() => console.log(">>> [DATABASE] Connected to MongoDB Mainframe"))
+  .then(() => console.log(">>> [SYSTEM] Database connection established."))
   .catch(err => {
-    console.error(">>> [DATABASE] Connection Error:", err);
-    process.exit(1); // Exit if cannot connect to DB
+    console.error(">>> [ERROR] Database connection failed:", err);
   });
 
 // --- Database Schemas ---
-
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
+  email: String,
+  password: { type: String, required: true },
   pfp: { type: String, default: "" },
-  role: { type: String, default: "User" },
+  role: { type: String, default: "Member" },
   bio: { type: String, default: "No bio available." },
   isOnline: { type: Boolean, default: true },
-  lastSeen: { type: Date, default: Date.now },
-  createdAt: { type: Date, default: Date.now }
+  lastSeen: { type: Date, default: Date.now }
 });
 
 const messageSchema = new mongoose.Schema({
   username: { type: String, required: true },
   text: { type: String, required: true },
   pfp: { type: String, default: "" },
-  role: { type: String, default: "User" },
+  role: { type: String, default: "Member" },
   timestamp: { type: Date, default: Date.now }
 });
 
@@ -48,140 +51,134 @@ const Message = mongoose.model('Message', messageSchema);
 // --- API Routes ---
 
 /**
- * @route   POST /api/login
- * @desc    Handles user entry. If user doesn't exist, it creates one.
+ * AUTH: Login
  */
-app.post('/api/login', async (req, res) => {
+app.post('/api/auth/login', async (req, res) => {
   try {
-    const { username } = req.body;
-    if (!username) return res.status(400).json({ error: "Username required" });
-
-    let user = await User.findOne({ username });
+    const { identifier, password } = req.body;
+    // Find by username or email
+    const user = await User.findOne({ 
+      $or: [{ username: identifier }, { email: identifier }],
+      password: password // Note: In production, use bcrypt hashing
+    });
 
     if (!user) {
-      // Create new user profile
-      user = new User({
-        username,
-        pfp: `https://api.dicebear.com/7.x/identicon/svg?seed=${username}`,
-        role: "New Recruit"
-      });
-      await user.save();
-    } else {
-      // Mark existing user as online
-      user.isOnline = true;
-      user.lastSeen = Date.now();
-      await user.save();
+      return res.status(401).json({ success: false, message: "Invalid credentials" });
     }
 
-    res.json(user);
+    user.isOnline = true;
+    user.lastSeen = Date.now();
+    await user.save();
+
+    // Greet the user with a system message
+    const welcomeMsg = new Message({
+      username: "System",
+      text: `Hello ${user.username}, welcome back to the terminal.`,
+      role: "System",
+      pfp: "https://api.dicebear.com/7.x/bottts/svg?seed=terminal"
+    });
+    await welcomeMsg.save();
+
+    res.json({ success: true, user });
   } catch (err) {
-    res.status(500).json({ error: "Authentication sequence failed" });
+    res.status(500).json({ success: false, message: "Auth failed" });
   }
 });
 
 /**
- * @route   GET /api/users
- * @desc    Fetch all registered users
+ * AUTH: Register
  */
-app.get('/api/users', async (req, res) => {
+app.post('/api/auth/register', async (req, res) => {
   try {
-    const users = await User.find().sort({ lastSeen: -1 });
-    res.json(users);
+    const { username, email, password, pfp } = req.body;
+    const existing = await User.findOne({ username });
+    if (existing) return res.status(400).json({ success: false, message: "Username taken" });
+
+    const user = new User({ username, email, password, pfp });
+    await user.save();
+
+    // Initial greeting for new user
+    const welcomeMsg = new Message({
+      username: "System",
+      text: `Hello ${username}, identity registered. Welcome to the network.`,
+      role: "System",
+      pfp: "https://api.dicebear.com/7.x/bottts/svg?seed=terminal"
+    });
+    await welcomeMsg.save();
+
+    res.json({ success: true, user });
   } catch (err) {
-    res.status(500).json({ error: "Failed to query directory" });
+    res.status(500).json({ success: false, message: "Registration failed" });
   }
 });
 
 /**
- * @route   GET /api/messages
- * @desc    Retrieve chat history
+ * MESSAGES: History
  */
 app.get('/api/messages', async (req, res) => {
   try {
-    // Return the last 150 messages for performance
-    const messages = await Message.find().sort({ timestamp: 1 }).limit(150);
+    const messages = await Message.find().sort({ timestamp: 1 }).limit(100);
     res.json(messages);
   } catch (err) {
-    res.status(500).json({ error: "History retrieval failed" });
+    res.status(500).json({ error: "Fetch failed" });
   }
 });
 
 /**
- * @route   POST /api/messages
- * @desc    Broadcast a new message and check for system commands
+ * MESSAGES: Post
  */
 app.post('/api/messages', async (req, res) => {
   try {
     const { username, text, pfp, role } = req.body;
-    
-    // Save user message
-    const newMessage = new Message({ username, text, pfp, role });
-    await newMessage.save();
-
-    // Basic System Logic (Bot Response)
-    if (text.toLowerCase().includes('help')) {
-      const botMsg = new Message({
-        username: "Terminal-Bot",
-        text: `Instructions for @${username}: Type /profile to edit details. Clear the console with CTRL+L.`,
-        role: "System-AI",
-        pfp: "https://api.dicebear.com/7.x/bottts/svg?seed=system"
-      });
-      await botMsg.save();
-    }
-
+    const msg = new Message({ username, text, pfp, role });
+    await msg.save();
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: "Transmission failed" });
+    res.status(500).json({ error: "Post failed" });
   }
 });
 
 /**
- * @route   PUT /api/users/profile
- * @desc    Updates user details and synchronizes them across all past messages
+ * USERS: List
+ */
+app.get('/api/users', async (req, res) => {
+  try {
+    const users = await User.find({}, '-password');
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ error: "Query failed" });
+  }
+});
+
+/**
+ * PROFILE: Update
  */
 app.put('/api/users/profile', async (req, res) => {
   try {
-    const { currentUsername, newUsername, bio, pfp } = req.body;
-
-    // 1. Update the User profile
-    const updatedUser = await User.findOneAndUpdate(
+    const { currentUsername, username, email, bio, profilePic } = req.body;
+    const user = await User.findOneAndUpdate(
       { username: currentUsername },
-      { username: newUsername, bio, pfp },
+      { username, email, bio, pfp: profilePic },
       { new: true }
     );
+    
+    if (!user) return res.status(404).json({ success: false });
 
-    if (!updatedUser) {
-      return res.status(404).json({ success: false, message: "User not found" });
-    }
+    // Update history
+    await Message.updateMany({ username: currentUsername }, { username, pfp: profilePic });
 
-    // 2. Cascade update: Change all historical messages to reflect new info
-    await Message.updateMany(
-      { username: currentUsername },
-      { username: newUsername, pfp: pfp }
-    );
-
-    res.json({ success: true, user: updatedUser });
+    res.json({ success: true, user });
   } catch (err) {
-    console.error("Profile Update Error:", err);
-    res.status(500).json({ success: false, message: "Profile synchronization failed" });
+    res.status(500).json({ success: false });
   }
 });
 
-/**
- * @route   POST /api/logout
- * @desc    Updates online status
- */
-app.post('/api/logout', async (req, res) => {
-  try {
-    const { username } = req.body;
-    await User.findOneAndUpdate({ username }, { isOnline: false, lastSeen: Date.now() });
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: "Logout sequence incomplete" });
-  }
+// 2. FALLBACK ROUTE
+// This ensures that if you refresh on a specific path, it serves index.html
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Start the Engines
 app.listen(PORT, () => {
-  console.log(`>>> [SERVER] Terminal Online at http://localhost:${PORT}`);
+  console.log(`>>> [SERVER] Running on port ${PORT}`);
 });
