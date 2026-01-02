@@ -6,17 +6,18 @@ const app = express();
 const server = http.createServer(app);
 
 // Middleware
-app.use(express.json({ limit: '10mb' })); // Increased limit for base64 images
+// We use a 10mb limit to handle base64 profile picture uploads
+app.use(express.json({ limit: '10mb' })); 
 app.use(express.static(path.join(__dirname, 'public')));
 
 /**
  * IN-MEMORY DATA STORE
- * In a production app, these would be in a database like Firestore or MongoDB.
+ * In a production environment, this would be replaced by a database like Firestore.
  */
 let messages = [];
 let users = {}; // Key: username, Value: user object
 
-// Mock some initial data
+// Mock initial System user to welcome people
 const BOT_USER = {
     username: "SystemBot",
     password: "bot",
@@ -27,17 +28,19 @@ const BOT_USER = {
 };
 users["SystemBot"] = BOT_USER;
 
+// Initial welcome message
 messages.push({
     username: "SystemBot",
     role: "Bot",
     pfp: null,
-    text: "Welcome to the Global Lobby! The frequency is open.",
+    text: "Live Network initialized. Global Lobby is now active.",
     timestamp: new Date().toISOString()
 });
 
 /**
  * AUTH / LOGIN ENDPOINT
- * Handles registration and login, and updates profile data (like PFP).
+ * Handles registration and login simultaneously for simplicity.
+ * Automatically handles the "Developer" rank assignment.
  */
 app.post('/api/auth/login', (req, res) => {
     const { identifier, password, pfp } = req.body;
@@ -46,25 +49,33 @@ app.post('/api/auth/login', (req, res) => {
         return res.status(400).json({ success: false, message: "Missing credentials" });
     }
 
-    // Simple logic: if user doesn't exist, create them. If they do, verify password.
+    // MANDATORY RULE: The username "Developer" is automatically granted the Developer rank.
+    let assignedRole = "VIP";
+    if (identifier.toLowerCase() === "developer") {
+        assignedRole = "Developer";
+    }
+
     if (!users[identifier]) {
+        // New user registration
         users[identifier] = {
             username: identifier,
             password: password,
-            role: "VIP", // Default role
+            role: assignedRole,
             pfp: pfp || null,
             isOnline: true,
             lastSeen: Date.now()
         };
     } else {
+        // Existing user login
         const user = users[identifier];
         if (user.password !== password) {
             return res.status(401).json({ success: false, message: "Invalid password" });
         }
         
-        // Update online status and PFP if provided
+        // Update user heartbeat and status
         user.isOnline = true;
         user.lastSeen = Date.now();
+        user.role = assignedRole; // Ensure Developer rank is maintained
         if (pfp) user.pfp = pfp; 
     }
 
@@ -75,7 +86,7 @@ app.post('/api/auth/login', (req, res) => {
  * MESSAGES ENDPOINTS
  */
 app.get('/api/messages', (req, res) => {
-    // Return last 50 messages
+    // Return last 50 messages for performance
     res.json(messages.slice(-50));
 });
 
@@ -94,7 +105,7 @@ app.post('/api/messages', (req, res) => {
 
     messages.push(newMessage);
     
-    // Auto-clean old messages
+    // Keep memory clean
     if (messages.length > 200) messages.shift();
 
     res.status(201).json(newMessage);
@@ -102,12 +113,15 @@ app.post('/api/messages', (req, res) => {
 
 /**
  * USERS DIRECTORY ENDPOINT
+ * Used by the sidebar in Canvas to show who is online.
  */
 app.get('/api/users', (req, res) => {
-    // Cleanup offline users based on lastSeen (15 second timeout)
     const now = Date.now();
     const userList = Object.values(users).map(u => {
-        if (now - u.lastSeen > 15000) u.isOnline = false;
+        // Heartbeat check: Users are considered offline after 12 seconds of inactivity
+        if (u.username !== "SystemBot" && now - u.lastSeen > 12000) {
+            u.isOnline = false;
+        }
         return {
             username: u.username,
             role: u.role,
@@ -120,6 +134,7 @@ app.get('/api/users', (req, res) => {
 
 /**
  * PROFILE UPDATE ENDPOINT
+ * Allows users to change their bio, email, or profile picture.
  */
 app.put('/api/users/profile', (req, res) => {
     const { currentUsername, username, email, bio, profilePic } = req.body;
@@ -130,13 +145,20 @@ app.put('/api/users/profile', (req, res) => {
 
     const user = users[currentUsername];
     
-    // Handle username change if unique
+    // Handle username change
     if (username && username !== currentUsername) {
         if (users[username]) {
-            return res.status(400).json({ success: false, message: "Username taken" });
+            return res.status(400).json({ success: false, message: "Username already taken" });
         }
+        // Migrate user data to new key
         delete users[currentUsername];
         user.username = username;
+        
+        // Re-enforce Developer rank if they changed to that name
+        if (username.toLowerCase() === "developer") {
+            user.role = "Developer";
+        }
+        
         users[username] = user;
     }
 
@@ -147,8 +169,7 @@ app.put('/api/users/profile', (req, res) => {
     res.json({ success: true, user });
 });
 
-// Start the server
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`Frequency stabilized on port ${PORT}`);
+    console.log(`ChatApp Server is running on port ${PORT}`);
 });
