@@ -1,13 +1,14 @@
 const express = require('express');
 const http = require('http');
 const path = require('path');
+const fetch = require('node-fetch');
 
 const app = express();
 const server = http.createServer(app);
 
-// API Configuration - Using your OpenAI Key
-const apiKey = "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";
-const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
+// API Configuration - Using your Google API Key
+const apiKey = "AIzaSyCSzATiVAHQeKdNaBRWTngEz_g218bVK78";
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
 
 app.use(express.json({ limit: '15mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -39,85 +40,99 @@ messages.push({
 });
 
 /**
- * AI LOGIC: OpenAI Fetch with Exponential Backoff
+ * AI LOGIC: Google Gemini Fetch with Exponential Backoff
  */
 async function fetchAIResponse(userPrompt, chatHistory) {
-    // Format the last few messages for context
-    const context = chatHistory.slice(-6).map(m => ({
-        role: m.username === "System" ? "assistant" : "user",
-        content: `${m.username}: ${m.text}`
-    }));
+    const systemInstruction = "Your name is System. You are the AI administrator of a high-tech chatroom. Keep responses concise, helpful, and maintain a cool, slightly futuristic persona. Do not use markdown bolding.";
+    
+    // Format history for context
+    const recentContext = chatHistory.slice(-5).map(m => `${m.username}: ${m.text}`).join('\n');
+    const fullPrompt = `Recent History:\n${recentContext}\n\nUser: ${userPrompt}\nSystem:`;
 
     const payload = {
-        model: "gpt-3.5-turbo",
-        messages: [
-            { 
-                role: "system", 
-                content: "Your name is System. You are the AI administrator of a high-tech, futuristic chatroom. Keep responses concise, helpful, and maintain a cool, slightly robotic but friendly persona. Do not use markdown bolding." 
-            },
-            ...context,
-            { role: "user", content: userPrompt }
-        ],
-        temperature: 0.7
+        contents: [{ parts: [{ text: fullPrompt }] }],
+        systemInstruction: { parts: [{ text: systemInstruction }] }
     };
 
     let delay = 1000;
     for (let i = 0; i < 5; i++) {
         try {
-            const response = await fetch(OPENAI_URL, {
+            const response = await fetch(GEMINI_URL, {
                 method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
 
             if (response.ok) {
                 const data = await response.json();
-                return data.choices[0].message.content.trim();
+                return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "I am currently processing other data streams.";
             } else {
                 const errData = await response.json();
-                console.error("OpenAI Error:", errData);
+                console.error("Gemini API Error:", errData);
             }
         } catch (error) {
             console.error("Fetch attempt failed:", error);
         }
-        // Wait and retry
         await new Promise(resolve => setTimeout(resolve, delay));
         delay *= 2;
     }
-    return "Protocol Error: Unable to reach the central intelligence core.";
+    return "Protocol Error: Central intelligence core is unreachable.";
 }
 
 /**
- * AUTHENTICATION
+ * AUTHENTICATION & PROFILE
  */
+app.post('/api/auth/register', (req, res) => {
+    const { username, password, email, pfp } = req.body;
+    if (!username || !password) return res.status(400).json({ success: false, message: "Missing credentials" });
+    
+    if (users[username]) return res.status(400).json({ success: false, message: "Username taken" });
+
+    users[username] = {
+        username,
+        password,
+        email,
+        pfp: pfp || null,
+        role: username.toLowerCase() === "developer" ? "Developer" : "Member",
+        isOnline: true,
+        lastSeen: Date.now()
+    };
+    
+    res.json({ success: true, user: users[username] });
+});
+
 app.post('/api/auth/login', (req, res) => {
-    const { identifier, password, pfp } = req.body;
-    if (!identifier || !password) return res.status(400).json({ success: false });
+    const { identifier, password } = req.body;
+    const user = users[identifier];
 
-    let assignedRole = "VIP";
-    if (identifier.toLowerCase() === "developer") assignedRole = "Developer";
-
-    if (!users[identifier]) {
-        users[identifier] = {
-            username: identifier,
-            password: password,
-            role: assignedRole,
-            pfp: pfp || null,
-            isOnline: true,
-            lastSeen: Date.now()
-        };
-    } else {
-        const user = users[identifier];
-        if (user.password !== password) return res.status(401).json({ success: false });
-        user.isOnline = true;
-        user.lastSeen = Date.now();
-        user.role = assignedRole;
-        if (pfp) user.pfp = pfp; 
+    if (!user || user.password !== password) {
+        return res.status(401).json({ success: false, message: "Invalid credentials" });
     }
-    res.json({ success: true, user: users[identifier] });
+
+    user.isOnline = true;
+    user.lastSeen = Date.now();
+    res.json({ success: true, user });
+});
+
+app.put('/api/users/profile', (req, res) => {
+    const { currentUsername, username, email, bio, profilePic } = req.body;
+    const user = users[currentUsername];
+
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
+    // If changing username, update the keys in our object
+    if (username && username !== currentUsername) {
+        if (users[username]) return res.status(400).json({ success: false, message: "Username taken" });
+        users[username] = { ...user, username, email, bio, pfp: profilePic || user.pfp };
+        delete users[currentUsername];
+        return res.json({ success: true, user: users[username] });
+    }
+
+    if (email) user.email = email;
+    if (bio) user.bio = bio;
+    if (profilePic) user.pfp = profilePic;
+
+    res.json({ success: true, user });
 });
 
 /**
@@ -132,7 +147,7 @@ app.post('/api/messages', async (req, res) => {
     const userMessage = {
         username,
         text,
-        role: role || "VIP",
+        role: role || "Member",
         pfp: pfp || null,
         timestamp: new Date().toISOString()
     };
@@ -141,11 +156,9 @@ app.post('/api/messages', async (req, res) => {
     res.status(201).json(userMessage);
 
     // AI TRIGGER CHECK
-    // If the message starts with "System " (case insensitive)
     if (text.toLowerCase().startsWith("system ")) {
         const prompt = text.slice(7).trim();
         if (prompt) {
-            // Trigger AI in background
             fetchAIResponse(prompt, messages).then(aiText => {
                 const aiMessage = {
                     username: "System",
@@ -164,7 +177,7 @@ app.post('/api/messages', async (req, res) => {
 });
 
 /**
- * USERS & HEARTBEAT
+ * ADMIN OPERATIONS
  */
 app.get('/api/users', (req, res) => {
     const now = Date.now();
@@ -175,12 +188,42 @@ app.get('/api/users', (req, res) => {
     res.json(userList);
 });
 
+app.put('/api/admin/rank', (req, res) => {
+    const { adminUsername, targetUsername, newRole } = req.body;
+    const admin = users[adminUsername];
+
+    if (!admin || (admin.role !== 'Developer' && admin.role !== 'Owner')) {
+        return res.status(403).json({ success: false, message: "Insufficient Permissions" });
+    }
+
+    if (users[targetUsername]) {
+        users[targetUsername].role = newRole;
+        return res.json({ success: true });
+    }
+    res.status(404).json({ success: false, message: "User not found" });
+});
+
+app.delete('/api/admin/users/:username', (req, res) => {
+    const { adminUsername } = req.query;
+    const { username } = req.params;
+    const admin = users[adminUsername];
+
+    if (!admin || (admin.role !== 'Developer' && admin.role !== 'Owner')) {
+        return res.status(403).send("Forbidden");
+    }
+
+    if (users[username]) {
+        delete users[username];
+        return res.sendStatus(200);
+    }
+    res.status(404).send("Not Found");
+});
+
 app.post('/api/heartbeat', (req, res) => {
-    const { username, pfp } = req.body;
+    const { username } = req.body;
     if (users[username]) {
         users[username].isOnline = true;
         users[username].lastSeen = Date.now();
-        if (pfp) users[username].pfp = pfp;
         res.json({ success: true });
     } else res.status(404).json({ success: false });
 });
