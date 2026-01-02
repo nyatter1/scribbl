@@ -128,7 +128,7 @@
                 <div class="flex flex-col items-center mb-8 pb-8 border-b border-slate-800/50">
                     <div class="relative mb-3">
                         <img id="sidebar-pfp" src="" class="w-24 h-24 rounded-3xl object-cover border-2 border-slate-800 bg-slate-800 shadow-2xl">
-                        <div class="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 border-4 border-slate-950 rounded-full"></div>
+                        <div id="self-status-indicator" class="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 border-4 border-slate-950 rounded-full transition-colors"></div>
                     </div>
                     <h2 id="sidebar-username" class="text-xl font-black text-white uppercase tracking-tight">User</h2>
                     <span id="sidebar-role" class="text-[9px] font-black uppercase tracking-widest text-indigo-500">Member</span>
@@ -149,7 +149,8 @@
 
     <script>
         let currentUser = null;
-        let usersUpdateInterval = null;
+        let globalUsersList = [];
+        let heartbeatTimer = null;
 
         window.onload = () => {
             const savedUser = localStorage.getItem('chat_user');
@@ -159,17 +160,38 @@
             }
             currentUser = JSON.parse(savedUser);
             
-            // Initial UI sync
             syncProfileDisplays();
             checkAdmin();
             
-            // Start sync
             fetchUsers();
-            usersUpdateInterval = setInterval(fetchUsers, 5000);
+            setInterval(fetchUsers, 5000);
             
-            // Auto-heartbeat
-            setInterval(sendHeartbeat, 15000);
+            // Start heartbeat only when page is visible
+            startHeartbeat();
+            
+            // Fix: Tab visibility listener
+            document.addEventListener('visibilitychange', () => {
+                const indicator = document.getElementById('self-status-indicator');
+                if (document.visibilityState === 'visible') {
+                    indicator.classList.replace('bg-slate-700', 'bg-emerald-500');
+                    startHeartbeat();
+                } else {
+                    indicator.classList.replace('bg-emerald-500', 'bg-slate-700');
+                    stopHeartbeat();
+                }
+            });
         };
+
+        function startHeartbeat() {
+            if (heartbeatTimer) clearInterval(heartbeatTimer);
+            sendHeartbeat(); // Immediate call
+            heartbeatTimer = setInterval(sendHeartbeat, 15000);
+        }
+
+        function stopHeartbeat() {
+            clearInterval(heartbeatTimer);
+            heartbeatTimer = null;
+        }
 
         function syncProfileDisplays() {
             const pfp = currentUser.pfp || 'https://ui-avatars.com/api/?name=' + currentUser.username + '&background=random';
@@ -187,6 +209,10 @@
 
         async function sendHeartbeat() {
             try {
+                // If the user isn't active on the tab, we don't send the heartbeat
+                // This makes the server see them as offline after 30s
+                if (document.visibilityState !== 'visible') return;
+
                 await fetch('/api/auth/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -207,7 +233,6 @@
                     currentUser.pfp = newBase64;
                     localStorage.setItem('chat_user', JSON.stringify(currentUser));
                     syncProfileDisplays();
-                    // In a production app, update DB here
                 }
                 reader.readAsDataURL(input.files[0]);
             }
@@ -242,14 +267,25 @@
             let html = "";
             
             if (tab === 'staff') {
+                // Filter actual staff from the global list
+                const staff = globalUsersList.filter(u => u.role === 'Developer' || u.role === 'Owner');
+                
                 html = `
                     <h2 class="text-4xl font-black text-white uppercase mb-8 italic tracking-tighter">Staff Directory</h2>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div class="bg-slate-900 p-6 rounded-2xl border border-indigo-500/20">
-                            <p class="text-[10px] font-black uppercase text-indigo-400 mb-1">Founder</p>
-                            <h4 class="text-xl font-bold text-white mb-4">Core_Developer</h4>
-                            <p class="text-slate-400 text-sm leading-relaxed">Lead system architect for the ChatApp network.</p>
-                        </div>
+                        ${staff.length > 0 ? staff.map(s => `
+                            <div class="bg-slate-900 p-6 rounded-2xl border border-indigo-500/20 flex items-center gap-4">
+                                <img src="${s.pfp || 'https://ui-avatars.com/api/?name=' + s.username}" class="w-16 h-16 rounded-xl border border-slate-800 object-cover">
+                                <div>
+                                    <p class="text-[10px] font-black uppercase text-indigo-400 mb-1">${s.role}</p>
+                                    <h4 class="text-xl font-bold text-white mb-1 flex items-center gap-2">
+                                        ${s.username}
+                                        <span class="w-2 h-2 rounded-full ${s.isOnline ? 'bg-emerald-500' : 'bg-slate-700'}"></span>
+                                    </h4>
+                                    <p class="text-slate-500 text-[10px] uppercase font-bold tracking-widest">${s.isOnline ? 'Active on node' : 'Disconnected'}</p>
+                                </div>
+                            </div>
+                        `).join('') : '<p class="text-slate-500 italic">No staff members detected in node directory.</p>'}
                     </div>
                 `;
             } else if (tab === 'rules') {
@@ -258,11 +294,11 @@
                     <div class="space-y-6 max-w-2xl">
                         <div class="flex gap-4 group">
                             <span class="text-indigo-500 font-black text-xl italic group-hover:text-white transition">01.</span>
-                            <p class="text-slate-300">Respect all users. Discrimination or targeted harassment results in an immediate ban.</p>
+                            <p class="text-slate-300 font-medium">Respect all users. Discrimination or targeted harassment results in an immediate ban.</p>
                         </div>
                         <div class="flex gap-4 group">
                             <span class="text-indigo-500 font-black text-xl italic group-hover:text-white transition">02.</span>
-                            <p class="text-slate-300">No flooding or excessive spamming in the global chat channels.</p>
+                            <p class="text-slate-300 font-medium">No flooding or excessive spamming in the global chat channels.</p>
                         </div>
                     </div>
                 `;
@@ -270,9 +306,9 @@
                 html = `
                     <h2 class="text-4xl font-black text-white uppercase mb-8 italic tracking-tighter">Updates</h2>
                     <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl">
-                        <span class="text-[10px] bg-indigo-500 text-white px-2 py-0.5 rounded font-black uppercase mb-3 inline-block tracking-tighter">Patch v4.1.0</span>
-                        <h4 class="text-xl font-bold text-white mb-2 italic">Refined Interface</h4>
-                        <p class="text-slate-400 text-sm leading-relaxed">Simplified navigation and removed technical jargon for a smoother user experience. User profile sidebars are now active.</p>
+                        <span class="text-[10px] bg-indigo-500 text-white px-2 py-0.5 rounded font-black uppercase mb-3 inline-block tracking-tighter">System Alert</span>
+                        <h4 class="text-xl font-bold text-white mb-2 italic">Real-time Presence v5.0</h4>
+                        <p class="text-slate-400 text-sm leading-relaxed">We've deployed a dynamic presence system. Your online status now accurately reflects whether you are focused on this tab or browsing elsewhere.</p>
                     </div>
                 `;
             }
@@ -283,6 +319,7 @@
             try {
                 const res = await fetch('/api/users');
                 const users = await res.json();
+                globalUsersList = users;
                 
                 document.getElementById('active-count').innerText = users.filter(u => u.isOnline).length;
                 const list = document.getElementById('user-list');
@@ -293,7 +330,7 @@
                     const opacity = u.isOnline ? 'opacity-100' : 'opacity-40';
                     
                     return `
-                        <div class="flex items-center gap-3 group ${opacity}">
+                        <div class="flex items-center gap-3 group ${opacity} transition-opacity duration-500">
                             <div class="relative">
                                 <img src="${pfp}" class="w-10 h-10 rounded-2xl border border-slate-800 object-cover bg-slate-800">
                                 <div class="absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-slate-950 ${statusColor}"></div>
@@ -305,6 +342,12 @@
                         </div>
                     `;
                 }).join('');
+
+                // If currently on staff tab, refresh it to show updated online statuses
+                const staffBtn = document.getElementById('tab-staff');
+                if (staffBtn.classList.contains('tab-active')) {
+                    renderContent('staff');
+                }
             } catch (err) {}
         }
 
