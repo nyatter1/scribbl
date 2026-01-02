@@ -6,10 +6,12 @@
     <title>ChatApp - Global Lobby</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        /* Custom Scrollbar Styling */
         .custom-scrollbar::-webkit-scrollbar { width: 5px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
         
+        /* Message Animation */
         .message-entry { 
             animation: slideIn 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards; 
             opacity: 0;
@@ -19,6 +21,7 @@
             to { opacity: 1; transform: translateY(0); } 
         }
 
+        /* Role Badges */
         .role-badge {
             font-size: 8px;
             padding: 2px 6px;
@@ -41,12 +44,18 @@
             filter: brightness(1.2);
             transform: scale(1.02);
         }
+
+        /* Essential Scroll Fix: Ensure the body doesn't scroll, only the containers */
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
     </style>
 </head>
-<body class="bg-slate-950 text-slate-200 min-h-screen flex flex-col font-sans overflow-hidden">
+<body class="bg-slate-950 text-slate-200 flex flex-col font-sans">
 
-    <!-- Top Navigation -->
-    <nav class="bg-slate-900/80 backdrop-blur-xl border-b border-slate-800 p-4 z-50">
+    <!-- Top Navigation (Fixed Height) -->
+    <nav class="bg-slate-900/80 backdrop-blur-xl border-b border-slate-800 p-4 z-50 flex-shrink-0">
         <div class="max-w-[1600px] mx-auto flex justify-between items-center">
             <div class="flex items-center gap-6">
                 <div class="flex flex-col">
@@ -61,22 +70,16 @@
             </div>
 
             <div class="flex items-center gap-4">
-                <div onclick="document.getElementById('hidden-pfp-input').click()" class="pfp-upload-trigger flex items-center gap-3 bg-slate-800/50 border border-slate-700/50 pl-1 pr-4 py-1 rounded-full hover:bg-slate-800 group relative">
+                <div onclick="window.location.href='/profile.html'" class="pfp-upload-trigger flex items-center gap-3 bg-slate-800/50 border border-slate-700/50 pl-1 pr-4 py-1 rounded-full hover:bg-slate-800 group relative">
                     <div id="nav-pfp-container" class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden border border-slate-600 relative">
                         <img id="nav-pfp" src="" class="w-full h-full object-cover hidden">
                         <span id="nav-initial" class="text-xs font-bold">?</span>
-                        <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                            </svg>
-                        </div>
                     </div>
                     <div class="flex flex-col">
                         <span id="nav-name" class="text-[11px] font-black text-white uppercase tracking-tight">User</span>
                         <span id="nav-role" class="text-[8px] font-bold text-slate-500 uppercase tracking-widest leading-none">VIP</span>
                     </div>
                 </div>
-                <input type="file" id="hidden-pfp-input" accept="image/*" class="hidden" onchange="handlePfpUpdate(event)">
                 
                 <div class="h-6 w-px bg-slate-800"></div>
                 <button onclick="logout()" class="p-2 text-slate-500 hover:text-red-400 transition" title="Logout">
@@ -88,11 +91,11 @@
         </div>
     </nav>
 
-    <!-- App Layout -->
+    <!-- App Layout (Full Remaining Height) -->
     <main class="flex-1 flex max-w-[1600px] mx-auto w-full overflow-hidden">
         
-        <!-- User Sidebar -->
-        <aside class="hidden md:flex flex-col w-72 border-r border-slate-900 bg-slate-950/50 p-6">
+        <!-- User Sidebar (Independently Scrollable) -->
+        <aside class="hidden md:flex flex-col w-72 border-r border-slate-900 bg-slate-950/50 p-6 flex-shrink-0 overflow-hidden">
             <div class="flex items-center justify-between mb-6">
                 <h3 class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Active Users</h3>
             </div>
@@ -102,15 +105,17 @@
         </aside>
 
         <!-- Chat Container -->
-        <section class="flex-1 flex flex-col min-w-0 bg-slate-900/20 relative">
-            <div id="chat-feed" class="flex-1 overflow-y-auto p-6 md:p-8 space-y-6 custom-scrollbar">
+        <section class="flex-1 flex flex-col min-w-0 bg-slate-900/20 relative overflow-hidden">
+            
+            <!-- THE FIX: Flex-1 and Overflow-Y-Auto on the feed container -->
+            <div id="chat-feed" class="flex-1 overflow-y-auto p-6 md:p-8 space-y-6 custom-scrollbar scroll-smooth">
                 <div class="flex flex-col items-center justify-center h-full opacity-20 italic text-sm text-center">
                     Initializing communication...
                 </div>
             </div>
 
-            <!-- Input Bar -->
-            <div class="p-6 bg-slate-950 border-t border-slate-900">
+            <!-- Input Bar (Fixed at bottom of section) -->
+            <div class="p-6 bg-slate-950 border-t border-slate-900 flex-shrink-0">
                 <form onsubmit="sendMessage(event)" class="max-w-4xl mx-auto relative group">
                     <input type="text" id="msg-input" autocomplete="off"
                         class="w-full bg-slate-900 border border-slate-800 rounded-2xl pl-6 pr-24 py-5 text-sm text-white focus:outline-none focus:border-indigo-500 transition-all shadow-2xl"
@@ -126,20 +131,25 @@
 
     <script>
         let currentUser = null;
-        let lastMessageTimestamp = 0;
+        let lastMessageCount = 0;
+        let userTheme = null;
 
         window.onload = () => {
             const saved = localStorage.getItem('chat_user');
             if (!saved) return window.location.href = '/login.html';
             currentUser = JSON.parse(saved);
 
+            const savedTheme = localStorage.getItem('user_theme');
+            if(savedTheme) userTheme = JSON.parse(savedTheme);
+
             setupUI();
             syncChat();
             syncUsers();
 
-            setInterval(syncChat, 2000);
-            setInterval(syncUsers, 4000); // Faster user sync
-            setInterval(heartbeat, 8000); // More frequent heartbeat
+            // Intervals
+            setInterval(syncChat, 1500); // Poll for messages
+            setInterval(syncUsers, 4000); // Poll for users
+            setInterval(heartbeat, 8000); // Send heartbeat
         };
 
         function setupUI() {
@@ -158,41 +168,23 @@
                 initial.classList.remove('hidden');
                 initial.innerText = currentUser.username[0].toUpperCase();
             }
-        }
 
-        async function handlePfpUpdate(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = async (event) => {
-                const base64 = event.target.result;
-                currentUser.pfp = base64;
-                localStorage.setItem('chat_user', JSON.stringify(currentUser));
-                setupUI();
-                await heartbeat();
-            };
-            reader.readAsDataURL(file);
+            if(userTheme) {
+                document.getElementById('send-btn').style.backgroundColor = userTheme.accent;
+            }
         }
 
         async function heartbeat() {
             try {
-                const res = await fetch('/api/auth/login', {
+                await fetch('/api/heartbeat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
-                        identifier: currentUser.username, 
-                        password: currentUser.password,
+                        username: currentUser.username,
                         pfp: currentUser.pfp 
                     })
                 });
-                const data = await res.json();
-                if (data.success && data.user.role !== currentUser.role) {
-                    currentUser.role = data.user.role;
-                    localStorage.setItem('chat_user', JSON.stringify(currentUser));
-                    document.getElementById('nav-role').innerText = currentUser.role;
-                }
-            } catch (e) { console.error("Heartbeat failed"); }
+            } catch (e) { console.error("Heartbeat error"); }
         }
 
         async function syncChat() {
@@ -201,13 +193,16 @@
                 const messages = await res.json();
                 const feed = document.getElementById('chat-feed');
                 
-                if (messages.length === 0) return;
-
-                const newest = new Date(messages[messages.length - 1].timestamp).getTime();
-                if (newest > lastMessageTimestamp) {
+                // Only update if message count changes to save performance and scroll position
+                if (messages.length !== lastMessageCount) {
+                    const shouldScroll = feed.scrollTop + feed.clientHeight >= feed.scrollHeight - 100;
+                    
                     feed.innerHTML = messages.map(m => renderMessage(m)).join('');
-                    feed.scrollTop = feed.scrollHeight;
-                    lastMessageTimestamp = newest;
+                    lastMessageCount = messages.length;
+
+                    if (shouldScroll) {
+                        feed.scrollTop = feed.scrollHeight;
+                    }
                 }
             } catch (e) { console.error("Chat sync failed"); }
         }
@@ -215,6 +210,8 @@
         function renderMessage(m) {
             const isMe = m.username === currentUser.username;
             const time = new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const accent = (isMe && userTheme) ? userTheme.accent : null;
+
             return `
                 <div class="message-entry flex items-start gap-4 ${isMe ? 'flex-row-reverse' : ''}">
                     <div class="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex-shrink-0 flex items-center justify-center overflow-hidden shadow-lg">
@@ -226,8 +223,9 @@
                             <span class="role-badge ${getRoleClass(m.role)}">${m.role}</span>
                             <span class="text-[9px] text-slate-600 font-bold">${time}</span>
                         </div>
-                        <div class="${isMe ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-slate-800 text-slate-200 rounded-tl-none'} px-5 py-3 rounded-2xl shadow-xl">
-                            <p class="text-[13px] leading-relaxed">${m.text}</p>
+                        <div class="${isMe ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-slate-800 text-slate-200 rounded-tl-none'} px-5 py-3 rounded-2xl shadow-xl" 
+                             style="${isMe && accent ? `background-color: ${accent}` : ''}">
+                            <p class="text-[13px] leading-relaxed break-words">${m.text}</p>
                         </div>
                     </div>
                 </div>
@@ -258,7 +256,6 @@
                                 <span class="text-[8px] font-black uppercase tracking-tighter ${getRoleColor(u.role)}">${u.role}</span>
                             </div>
                         </div>
-                        ${u.isOnline ? '<span class="text-[8px] text-emerald-500 font-bold uppercase tracking-widest">Live</span>' : ''}
                     </div>
                 `).join('');
             } catch (e) { console.error("User sync failed"); }
