@@ -117,6 +117,12 @@ app.post('/api/messages', async (req, res) => {
     const { username, text, role, pfp } = req.body;
     if (!username || !text) return res.status(400).send("Bad Request");
 
+    // Update user activity on message post
+    if (users[username]) {
+        users[username].isOnline = true;
+        users[username].lastSeen = Date.now();
+    }
+
     // Don't let the bot reply to itself (infinite loop)
     if (username === "System") return res.status(200).send("Bot loop prevented");
 
@@ -132,9 +138,7 @@ app.post('/api/messages', async (req, res) => {
     res.status(201).json(userMessage);
 
     // AI TRIGGER WITH PREFIX
-    // Now it only responds if the message starts with "System"
     if (text.toLowerCase().startsWith("system")) {
-        // Remove the "system" trigger word before sending to AI
         const promptToAI = text.replace(/^system\s*/i, "");
         
         fetchAIResponse(promptToAI, messages).then(aiText => {
@@ -159,8 +163,17 @@ app.post('/api/messages', async (req, res) => {
 app.get('/api/users', (req, res) => {
     const now = Date.now();
     const userList = Object.values(users).map(u => {
-        if (u.username !== "System" && now - u.lastSeen > 12000) u.isOnline = false;
-        return { username: u.username, role: u.role, pfp: u.pfp, isOnline: u.isOnline };
+        // Only check timeout for real users, not the Bot
+        if (u.username !== "System") {
+            // Increased timeout window to 30 seconds for better stability
+            u.isOnline = (now - u.lastSeen < 30000);
+        }
+        return { 
+            username: u.username, 
+            role: u.role, 
+            pfp: u.pfp, 
+            isOnline: u.isOnline 
+        };
     });
     res.json(userList);
 });
