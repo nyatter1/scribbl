@@ -55,7 +55,6 @@
     </header>
 
     <div class="flex flex-grow overflow-hidden">
-        
         <!-- Left Sidebar: Tabs -->
         <aside class="w-64 bg-slate-900/30 border-r border-slate-800 flex flex-col">
             <div class="p-6 space-y-1">
@@ -115,9 +114,8 @@
                 </div>
             </div>
 
-            <!-- Other Views (Injected content) -->
+            <!-- Other Views -->
             <div id="view-content" class="hidden flex-grow p-10 overflow-y-auto custom-scrollbar animate-fade">
-                <!-- Content injected via switchTab -->
             </div>
         </main>
 
@@ -140,11 +138,9 @@
                 </div>
                 
                 <div id="user-list" class="space-y-3">
-                    <!-- Users list -->
                 </div>
             </div>
         </aside>
-
     </div>
 
     <script>
@@ -154,29 +150,26 @@
 
         window.onload = () => {
             const savedUser = localStorage.getItem('chat_user');
-            if (!savedUser) {
-                window.location.href = '/login.html';
-                return;
-            }
-            currentUser = JSON.parse(savedUser);
+            if (!savedUser) return window.location.href = '/login.html';
             
+            currentUser = JSON.parse(savedUser);
             syncProfileDisplays();
             checkAdmin();
             
             fetchUsers();
             setInterval(fetchUsers, 5000);
             
-            // Start heartbeat only when page is visible
             startHeartbeat();
             
-            // Fix: Tab visibility listener
             document.addEventListener('visibilitychange', () => {
                 const indicator = document.getElementById('self-status-indicator');
                 if (document.visibilityState === 'visible') {
-                    indicator.classList.replace('bg-slate-700', 'bg-emerald-500');
+                    indicator.classList.remove('bg-slate-700');
+                    indicator.classList.add('bg-emerald-500');
                     startHeartbeat();
                 } else {
-                    indicator.classList.replace('bg-emerald-500', 'bg-slate-700');
+                    indicator.classList.remove('bg-emerald-500');
+                    indicator.classList.add('bg-slate-700');
                     stopHeartbeat();
                 }
             });
@@ -184,7 +177,7 @@
 
         function startHeartbeat() {
             if (heartbeatTimer) clearInterval(heartbeatTimer);
-            sendHeartbeat(); // Immediate call
+            sendHeartbeat();
             heartbeatTimer = setInterval(sendHeartbeat, 15000);
         }
 
@@ -209,15 +202,25 @@
 
         async function sendHeartbeat() {
             try {
-                // If the user isn't active on the tab, we don't send the heartbeat
-                // This makes the server see them as offline after 30s
                 if (document.visibilityState !== 'visible') return;
 
-                await fetch('/api/auth/login', {
+                const res = await fetch('/api/auth/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ identifier: currentUser.username, password: currentUser.password })
+                    body: JSON.stringify({ 
+                        identifier: currentUser.username, 
+                        password: currentUser.password,
+                        pfp: currentUser.pfp || '' // Send our current PFP so server stores it
+                    })
                 });
+                
+                const data = await res.json();
+                if (data.success && data.user.role !== currentUser.role) {
+                    currentUser.role = data.user.role;
+                    localStorage.setItem('chat_user', JSON.stringify(currentUser));
+                    syncProfileDisplays();
+                    checkAdmin();
+                }
             } catch (err) {}
         }
 
@@ -233,6 +236,8 @@
                     currentUser.pfp = newBase64;
                     localStorage.setItem('chat_user', JSON.stringify(currentUser));
                     syncProfileDisplays();
+                    // Send to server immediately via heartbeat logic
+                    sendHeartbeat();
                 }
                 reader.readAsDataURL(input.files[0]);
             }
@@ -267,9 +272,7 @@
             let html = "";
             
             if (tab === 'staff') {
-                // Filter actual staff from the global list
                 const staff = globalUsersList.filter(u => u.role === 'Developer' || u.role === 'Owner');
-                
                 html = `
                     <h2 class="text-4xl font-black text-white uppercase mb-8 italic tracking-tighter">Staff Directory</h2>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -343,9 +346,7 @@
                     `;
                 }).join('');
 
-                // If currently on staff tab, refresh it to show updated online statuses
-                const staffBtn = document.getElementById('tab-staff');
-                if (staffBtn.classList.contains('tab-active')) {
+                if (document.getElementById('tab-staff').classList.contains('tab-active')) {
                     renderContent('staff');
                 }
             } catch (err) {}
@@ -359,23 +360,22 @@
             if (!text) return;
 
             const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            const msg = document.createElement('div');
-            msg.className = "flex gap-3 animate-fade group";
-            
             const pfp = currentUser.pfp || 'https://ui-avatars.com/api/?name=' + currentUser.username + '&background=random';
 
-            msg.innerHTML = `
-                <img src="${pfp}" class="w-9 h-9 rounded-xl mt-1 object-cover border border-slate-800">
-                <div class="flex flex-col">
-                    <div class="flex items-center gap-2">
-                        <span class="text-[10px] font-black text-indigo-400 uppercase tracking-tighter italic">${currentUser.username}</span>
-                        <span class="text-[8px] text-slate-700 font-bold">${time}</span>
+            const msgHtml = `
+                <div class="flex gap-3 animate-fade group">
+                    <img src="${pfp}" class="w-9 h-9 rounded-xl mt-1 object-cover border border-slate-800">
+                    <div class="flex flex-col">
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] font-black text-indigo-400 uppercase tracking-tighter italic">${currentUser.username}</span>
+                            <span class="text-[8px] text-slate-700 font-bold">${time}</span>
+                        </div>
+                        <p class="text-[13px] text-slate-300 leading-relaxed font-medium">${text}</p>
                     </div>
-                    <p class="text-[13px] text-slate-300 leading-relaxed font-medium">${text}</p>
                 </div>
             `;
 
-            feed.appendChild(msg);
+            feed.insertAdjacentHTML('beforeend', msgHtml);
             feed.scrollTop = feed.scrollHeight;
             input.value = "";
         }
