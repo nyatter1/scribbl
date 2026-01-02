@@ -53,11 +53,12 @@
                         <i data-lucide="play" class="w-12 h-12 mb-4 text-white"></i>
                         <h2 class="text-2xl font-black text-white">QUICK PLAY</h2>
                     </button>
-                    <button onclick="openCreateModal()" class="group relative overflow-hidden bg-white/5 hover:bg-white/10 border border-white/10 transition-all rounded-[32px] p-8 text-left active:scale-95">
+                    <button onclick="joinGame('Private')" class="group relative overflow-hidden bg-white/5 hover:bg-white/10 border border-white/10 transition-all rounded-[32px] p-8 text-left active:scale-95">
                         <i data-lucide="plus-circle" class="w-12 h-12 mb-4 text-emerald-400"></i>
                         <h2 class="text-2xl font-black text-white">PRIVATE ROOM</h2>
                     </button>
                 </div>
+                <div id="conn-status" class="text-center text-xs font-bold text-slate-500 uppercase tracking-widest">Connecting to server...</div>
             </section>
         </main>
     </div>
@@ -138,12 +139,13 @@
     </div>
 
     <script>
-        // REPLACE THIS URL with your Render Server URL
-        const SERVER_URL = 'http://localhost:3001'; 
+        // Updated to your live Render URL
+        const SERVER_URL = 'https://my-chat-site.onrender.com'; 
         const socket = io(SERVER_URL);
         
         const canvas = document.getElementById('game-canvas');
         const ctx = canvas.getContext('2d');
+        const statusEl = document.getElementById('conn-status');
         let isDrawing = false;
         let myTurn = false;
         let currentTool = 'pencil';
@@ -152,6 +154,17 @@
         let roomName = '';
 
         lucide.createIcons();
+
+        // Connection Handling
+        socket.on('connect', () => {
+            statusEl.innerText = 'Server Connected';
+            statusEl.classList.replace('text-slate-500', 'text-emerald-500');
+        });
+
+        socket.on('disconnect', () => {
+            statusEl.innerText = 'Lost Connection...';
+            statusEl.classList.replace('text-emerald-500', 'text-red-500');
+        });
 
         // Color Palette Init
         const paintColors = ['#000000', '#ffffff', '#ef4444', '#f97316', '#facc15', '#22c55e', '#3b82f6', '#6366f1', '#a855f7', '#ec4899'];
@@ -165,6 +178,10 @@
         });
 
         function joinGame(targetRoom) {
+            if (!socket.connected) {
+                alert("Wait for server connection...");
+                return;
+            }
             roomName = targetRoom === 'Global' ? 'Public Lobby' : targetRoom;
             const username = document.getElementById('username-input').value;
             const avatarColor = document.getElementById('avatar-preview').style.backgroundColor;
@@ -202,6 +219,7 @@
             document.getElementById('waiting-overlay').classList.add('hidden');
             document.getElementById('word-display').innerText = myTurn ? word : word.split('').map(() => '_ ').join('');
             if (myTurn) document.getElementById('toolbar').classList.remove('hidden');
+            else document.getElementById('toolbar').classList.add('hidden');
             addChatMessage('System', 'Game started! 2 players present.', 'system');
         });
 
