@@ -35,7 +35,7 @@ messages.push({
     username: "System",
     role: "Bot",
     pfp: null,
-    text: "The network is live. Type 'System [your message]' to talk to me!",
+    text: "Systems active. I'm here to chat—no prefixes needed anymore!",
     timestamp: new Date().toISOString()
 });
 
@@ -43,11 +43,12 @@ messages.push({
  * AI LOGIC: Google Gemini Fetch with Exponential Backoff
  */
 async function fetchAIResponse(userPrompt, chatHistory) {
-    const systemInstruction = "Your name is System. You are the AI administrator of a high-tech chatroom. Keep responses concise, helpful, and maintain a cool, slightly futuristic persona. Do not use markdown bolding.";
+    // A more natural, human-like instruction
+    const systemInstruction = "Your name is System. You are a member of this chatroom. Talk like a human, be helpful, and conversational. Answer questions directly (like 1+1=2). Keep it concise but natural. Don't use markdown bolding.";
     
-    // Format history for context
-    const recentContext = chatHistory.slice(-5).map(m => `${m.username}: ${m.text}`).join('\n');
-    const fullPrompt = `Recent History:\n${recentContext}\n\nUser: ${userPrompt}\nSystem:`;
+    // Format history for context so it remembers the conversation flow
+    const recentContext = chatHistory.slice(-10).map(m => `${m.username}: ${m.text}`).join('\n');
+    const fullPrompt = `Recent Chat History:\n${recentContext}\n\nLatest message from user: ${userPrompt}\nYour response:`;
 
     const payload = {
         contents: [{ parts: [{ text: fullPrompt }] }],
@@ -65,18 +66,15 @@ async function fetchAIResponse(userPrompt, chatHistory) {
 
             if (response.ok) {
                 const data = await response.json();
-                return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "I am currently processing other data streams.";
-            } else {
-                const errData = await response.json();
-                console.error("Gemini API Error:", errData);
+                return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "Just processing that...";
             }
         } catch (error) {
-            console.error("Fetch attempt failed:", error);
+            console.error("AI Fetch error:", error);
         }
         await new Promise(resolve => setTimeout(resolve, delay));
         delay *= 2;
     }
-    return "Protocol Error: Central intelligence core is unreachable.";
+    return "Lost connection for a second there. What were we saying?";
 }
 
 /**
@@ -85,7 +83,6 @@ async function fetchAIResponse(userPrompt, chatHistory) {
 app.post('/api/auth/register', (req, res) => {
     const { username, password, email, pfp } = req.body;
     if (!username || !password) return res.status(400).json({ success: false, message: "Missing credentials" });
-    
     if (users[username]) return res.status(400).json({ success: false, message: "Username taken" });
 
     users[username] = {
@@ -97,52 +94,31 @@ app.post('/api/auth/register', (req, res) => {
         isOnline: true,
         lastSeen: Date.now()
     };
-    
     res.json({ success: true, user: users[username] });
 });
 
 app.post('/api/auth/login', (req, res) => {
     const { identifier, password } = req.body;
     const user = users[identifier];
-
     if (!user || user.password !== password) {
         return res.status(401).json({ success: false, message: "Invalid credentials" });
     }
-
     user.isOnline = true;
     user.lastSeen = Date.now();
     res.json({ success: true, user });
 });
 
-app.put('/api/users/profile', (req, res) => {
-    const { currentUsername, username, email, bio, profilePic } = req.body;
-    const user = users[currentUsername];
-
-    if (!user) return res.status(404).json({ success: false, message: "User not found" });
-
-    // If changing username, update the keys in our object
-    if (username && username !== currentUsername) {
-        if (users[username]) return res.status(400).json({ success: false, message: "Username taken" });
-        users[username] = { ...user, username, email, bio, pfp: profilePic || user.pfp };
-        delete users[currentUsername];
-        return res.json({ success: true, user: users[username] });
-    }
-
-    if (email) user.email = email;
-    if (bio) user.bio = bio;
-    if (profilePic) user.pfp = profilePic;
-
-    res.json({ success: true, user });
-});
-
 /**
- * MESSAGES & AI TRIGGER
+ * MESSAGES & AI TRIGGER (AUTO-REPLY)
  */
 app.get('/api/messages', (req, res) => res.json(messages.slice(-50)));
 
 app.post('/api/messages', async (req, res) => {
     const { username, text, role, pfp } = req.body;
     if (!username || !text) return res.status(400).send("Bad Request");
+
+    // Don't let the bot reply to itself (infinite loop)
+    if (username === "System") return res.status(200).send("Bot loop prevented");
 
     const userMessage = {
         username,
@@ -155,29 +131,25 @@ app.post('/api/messages', async (req, res) => {
     messages.push(userMessage);
     res.status(201).json(userMessage);
 
-    // AI TRIGGER CHECK
-    if (text.toLowerCase().startsWith("system ")) {
-        const prompt = text.slice(7).trim();
-        if (prompt) {
-            fetchAIResponse(prompt, messages).then(aiText => {
-                const aiMessage = {
-                    username: "System",
-                    role: "Bot",
-                    pfp: null,
-                    text: aiText,
-                    timestamp: new Date().toISOString()
-                };
-                messages.push(aiMessage);
-                if (messages.length > 200) messages.shift();
-            });
-        }
-    }
+    // AUTO-REPLY TO EVERYTHING
+    // We trigger the AI for every human message sent
+    fetchAIResponse(text, messages).then(aiText => {
+        const aiMessage = {
+            username: "System",
+            role: "Bot",
+            pfp: null,
+            text: aiText,
+            timestamp: new Date().toISOString()
+        };
+        messages.push(aiMessage);
+        if (messages.length > 200) messages.shift();
+    });
 
     if (messages.length > 200) messages.shift();
 });
 
 /**
- * ADMIN OPERATIONS
+ * ADMIN & HEARTBEAT
  */
 app.get('/api/users', (req, res) => {
     const now = Date.now();
@@ -186,37 +158,6 @@ app.get('/api/users', (req, res) => {
         return { username: u.username, role: u.role, pfp: u.pfp, isOnline: u.isOnline };
     });
     res.json(userList);
-});
-
-app.put('/api/admin/rank', (req, res) => {
-    const { adminUsername, targetUsername, newRole } = req.body;
-    const admin = users[adminUsername];
-
-    if (!admin || (admin.role !== 'Developer' && admin.role !== 'Owner')) {
-        return res.status(403).json({ success: false, message: "Insufficient Permissions" });
-    }
-
-    if (users[targetUsername]) {
-        users[targetUsername].role = newRole;
-        return res.json({ success: true });
-    }
-    res.status(404).json({ success: false, message: "User not found" });
-});
-
-app.delete('/api/admin/users/:username', (req, res) => {
-    const { adminUsername } = req.query;
-    const { username } = req.params;
-    const admin = users[adminUsername];
-
-    if (!admin || (admin.role !== 'Developer' && admin.role !== 'Owner')) {
-        return res.status(403).send("Forbidden");
-    }
-
-    if (users[username]) {
-        delete users[username];
-        return res.sendStatus(200);
-    }
-    res.status(404).send("Not Found");
 });
 
 app.post('/api/heartbeat', (req, res) => {
