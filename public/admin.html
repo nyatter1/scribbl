@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - System Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #374151; border-radius: 10px; }
+        
+        .log-entry { font-family: 'Courier New', Courier, monospace; }
+        .rank-badge-Developer { color: #818cf8; border-color: #4f46e5; background: rgba(79, 70, 229, 0.1); }
+        .rank-badge-Owner { color: #fbbf24; border-color: #d97706; background: rgba(217, 119, 6, 0.1); }
+        .rank-badge-Member { color: #9ca3af; border-color: #4b5563; background: rgba(75, 85, 99, 0.1); }
+        
+        .rank-icon-small { width: 16px; height: 16px; object-fit: contain; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-200 min-h-screen font-sans flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-slate-900 border-b border-slate-800 p-4 flex justify-between items-center shadow-2xl sticky top-0 z-40">
+        <div class="flex items-center gap-4">
+            <div class="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center font-bold text-white shadow-lg">A</div>
+            <div>
+                <h1 class="font-black text-xl tracking-tighter uppercase italic text-white">Admin Console</h1>
+                <p class="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Secure Access Only</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-4">
+            <a href="/" class="text-xs font-bold bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded-md transition border border-slate-700">Back to Chat</a>
+        </div>
+    </header>
+
+    <div class="flex flex-grow overflow-hidden">
+        <!-- Sidebar: Console Logs -->
+        <aside class="w-1/3 bg-black/40 border-r border-slate-800 flex flex-col hidden lg:flex">
+            <div class="p-4 border-b border-slate-800 bg-slate-900/50 flex justify-between items-center">
+                <span class="text-xs font-black uppercase text-slate-500 tracking-widest">Live System Logs</span>
+                <button onclick="clearLogs()" class="text-[10px] text-red-500 hover:text-red-400 font-bold uppercase">Clear</button>
+            </div>
+            <div id="console-logs" class="flex-grow overflow-y-auto p-4 space-y-2 custom-scrollbar text-[11px] log-entry">
+                <div class="text-slate-500">[SYSTEM] Session initialized at ${new Date().toLocaleTimeString()}</div>
+                <div class="text-indigo-400">[AUTH] Waiting for developer verification...</div>
+            </div>
+        </aside>
+
+        <!-- Main Content: Member Management -->
+        <main class="flex-grow flex flex-col p-6 overflow-y-auto custom-scrollbar">
+            <div class="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+                <div>
+                    <h2 class="text-3xl font-black text-white uppercase tracking-tight">Member Management</h2>
+                    <p class="text-slate-400 text-sm">Review accounts, adjust ranks, and maintain system security.</p>
+                </div>
+                <div class="flex gap-4">
+                    <div class="text-right">
+                        <span id="user-count" class="text-4xl font-black text-indigo-500">0</span>
+                        <p class="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Total Users</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Member Grid -->
+            <div class="grid grid-cols-1 xl:grid-cols-2 gap-4" id="member-grid">
+                <!-- User items will be injected here -->
+                <div class="animate-pulse bg-slate-900 h-24 rounded-xl border border-slate-800"></div>
+                <div class="animate-pulse bg-slate-900 h-24 rounded-xl border border-slate-800"></div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Rank Update Modal -->
+    <div id="rank-modal" class="hidden fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+        <div class="bg-slate-900 border border-slate-800 p-8 rounded-2xl max-w-sm w-full shadow-2xl transform transition-all">
+            <h3 class="text-xl font-bold mb-1 text-white">Adjust Rank</h3>
+            <p id="target-user-label" class="text-indigo-400 font-mono text-sm mb-6 bg-slate-950 p-2 rounded inline-block"></p>
+            
+            <div class="space-y-3">
+                <button onclick="updateRank('Developer')" class="w-full bg-indigo-600 hover:bg-indigo-500 p-3 rounded-xl font-bold transition flex items-center justify-between px-6 group">
+                    <span>Developer</span>
+                    <img src="/developer.png" class="rank-icon-small group-hover:scale-110 transition" onerror="this.style.display='none'">
+                </button>
+                <button onclick="updateRank('Owner')" class="w-full bg-amber-600 hover:bg-amber-500 p-3 rounded-xl font-bold transition flex items-center justify-between px-6 group">
+                    <span>Owner</span>
+                    <img src="/owner.png" class="rank-icon-small group-hover:scale-110 transition" onerror="this.style.display='none'">
+                </button>
+                <button onclick="updateRank('Member')" class="w-full bg-slate-700 hover:bg-slate-600 p-3 rounded-xl font-bold transition flex items-center justify-between px-6 group">
+                    <span>Member</span>
+                    <img src="/member.png" class="rank-icon-small group-hover:scale-110 transition" onerror="this.style.display='none'">
+                </button>
+                
+                <div class="pt-6 mt-4 border-t border-slate-800">
+                    <button onclick="closeRankModal()" class="w-full text-slate-500 hover:text-white transition text-sm font-bold uppercase tracking-widest">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null;
+        let selectedUsername = null;
+
+        function addLog(msg, color = 'slate-500') {
+            const logs = document.getElementById('console-logs');
+            if (!logs) return;
+            const time = new Date().toLocaleTimeString();
+            const div = document.createElement('div');
+            div.className = `text-${color}`;
+            div.innerHTML = `<span class="opacity-40">[${time}]</span> ${msg}`;
+            logs.appendChild(div);
+            logs.scrollTop = logs.scrollHeight;
+        }
+
+        function clearLogs() {
+            document.getElementById('console-logs').innerHTML = '';
+            addLog("Logs cleared.", "yellow-500");
+        }
+
+        window.onload = async () => {
+            const savedUser = localStorage.getItem('chat_user');
+            if (!savedUser) return window.location.href = '/login';
+            
+            currentUser = JSON.parse(savedUser);
+            
+            // Security Check
+            if (currentUser.role !== 'Developer' && currentUser.role !== 'Owner') {
+                alert("Unauthorized: Developer clearance required.");
+                return window.location.href = '/';
+            }
+
+            addLog(`Authenticated as ${currentUser.username} (${currentUser.role})`, "green-500");
+            fetchMembers();
+        };
+
+        async function fetchMembers() {
+            try {
+                const res = await fetch('/api/users');
+                const users = await res.json();
+                document.getElementById('user-count').innerText = users.length;
+                
+                const grid = document.getElementById('member-grid');
+                grid.innerHTML = users.map(u => {
+                    const pfp = u.pfp || `https://ui-avatars.com/api/?name=${u.username}&background=random`;
+                    return `
+                        <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl flex justify-between items-center group hover:border-slate-600 transition shadow-lg">
+                            <div class="flex items-center gap-4">
+                                <img src="${pfp}" class="w-12 h-12 bg-slate-950 rounded-xl object-cover border border-slate-800">
+                                <div>
+                                    <h4 class="font-bold text-white text-lg leading-none mb-1 flex items-center gap-2">
+                                        ${u.username}
+                                        ${u.isOnline ? '<span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>' : ''}
+                                    </h4>
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-[9px] px-2 py-0.5 rounded border rank-badge-${u.role} font-black uppercase tracking-widest">
+                                            ${u.role}
+                                        </span>
+                                        <span class="text-[10px] text-slate-600 font-mono">ID: ${u.username.toLowerCase()}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button onclick="openRankModal('${u.username}')" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase transition tracking-tighter">Set Rank</button>
+                                <button onclick="confirmDelete('${u.username}')" class="bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white p-2 rounded-lg transition border border-red-600/20">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (err) {
+                addLog("CRITICAL: Failed to load directory. " + err.message, "red-500");
+            }
+        }
+
+        function openRankModal(username) {
+            selectedUsername = username;
+            document.getElementById('target-user-label').innerText = `@${username}`;
+            document.getElementById('rank-modal').classList.remove('hidden');
+        }
+
+        function closeRankModal() {
+            document.getElementById('rank-modal').classList.add('hidden');
+            selectedUsername = null;
+        }
+
+        async function updateRank(newRole) {
+            if (!selectedUsername || !currentUser) return;
+            
+            try {
+                addLog(`Executing rank modification for ${selectedUsername}...`, "indigo-400");
+                const res = await fetch(`/api/admin/rank`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        adminUsername: currentUser.username, 
+                        targetUsername: selectedUsername, 
+                        newRole 
+                    })
+                });
+                
+                const data = await res.json();
+                if (data.success) {
+                    addLog(`Rank updated: ${selectedUsername} is now ${newRole}.`, "green-400");
+                    closeRankModal();
+                    fetchMembers();
+                } else {
+                    addLog(`Access Denied: ${data.message}`, "red-500");
+                    alert(data.message);
+                }
+            } catch (err) {
+                addLog(`Network Error: ${err.message}`, "red-500");
+            }
+        }
+
+        async function confirmDelete(username) {
+            if (username === currentUser.username) {
+                return addLog("Action Blocked: Cannot delete self-account.", "red-400");
+            }
+
+            if (!confirm(`Warning: This action will permanently delete @${username} and all their data. Continue?`)) return;
+            
+            try {
+                addLog(`Requesting account purge for ${username}...`, "red-400");
+                const res = await fetch(`/api/admin/users/${username}?adminUsername=${currentUser.username}`, {
+                    method: 'DELETE'
+                });
+                
+                if (res.ok) {
+                    addLog(`Success: User ${username} has been removed.`, "red-400");
+                    fetchMembers();
+                } else {
+                    addLog("Deletion failed: Insufficient permissions.", "red-500");
+                }
+            } catch (err) {
+                addLog("Purge request failed: " + err.message, "red-500");
+            }
+        }
+    </script>
+</body>
+</html>
