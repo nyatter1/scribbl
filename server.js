@@ -1,108 +1,84 @@
 const express = require('express');
-const bodyParser = require('body-parser');
-const path = require('path');
-
 const app = express();
-const PORT = process.env.PORT || 3000;
+const port = 3000;
 
-// Middleware
-app.use(bodyParser.json({ limit: '50mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.static('public'));
 
-// In-memory database (reset on server restart)
-// In a production environment, this would be replaced with Firestore or MongoDB
-let users = [
-    { username: 'System', password: 'password', role: 'Owner', isOnline: true, lastActive: Date.now(), pfp: '' }
-];
+// In-memory database for demo purposes
+// In a real app, this would be a database
+let users = {}; 
 
-// Helper: Check if user is online based on heartbeat (30 second timeout)
-function getOnlineUsers() {
-    const now = Date.now();
-    return users.map(u => ({
-        ...u,
-        isOnline: (now - u.lastActive) < 30000 
-    }));
+/**
+ * Automates rank assignment based on username
+ * @param {string} username 
+ * @returns {string} Assigned Role
+ */
+function getAutomatedRole(username) {
+    const name = username.toLowerCase().trim();
+    if (name === 'developer') return 'Developer';
+    if (name === 'joseee') return 'Owner';
+    if (name === 'system') return 'Bot';
+    return 'VIP'; // Everyone else
 }
 
-// API: Authentication / Login / Heartbeat
+// Authentication / Heartbeat Endpoint
 app.post('/api/auth/login', (req, res) => {
-    const { identifier, password } = req.body;
-    
-    let user = users.find(u => u.username === identifier);
-    
-    if (user) {
-        if (user.password === password) {
-            user.lastActive = Date.now();
-            return res.json({ success: true, user });
-        } else {
-            return res.status(401).json({ success: false, message: "Invalid password." });
-        }
-    } else {
-        // Simple auto-registration for demo purposes
-        const newUser = {
-            username: identifier,
-            password: password,
-            role: 'Member',
-            lastActive: Date.now(),
-            pfp: ''
-        };
-        users.push(newUser);
-        return res.json({ success: true, user: newUser });
+    const { identifier, password, pfp } = req.body;
+
+    if (!identifier || !password) {
+        return res.status(400).json({ success: false, message: "Missing credentials" });
     }
+
+    // Determine the correct role based on the username provided
+    const assignedRole = getAutomatedRole(identifier);
+
+    // Update or Create user in the global directory
+    users[identifier] = {
+        username: identifier,
+        password: password, // In production, never store/return plain text passwords
+        role: assignedRole,
+        pfp: pfp || users[identifier]?.pfp || '',
+        lastSeen: Date.now(),
+        isOnline: true
+    };
+
+    res.json({ 
+        success: true, 
+        user: { 
+            username: identifier, 
+            role: assignedRole,
+            pfp: users[identifier].pfp
+        } 
+    });
 });
 
-// API: Get All Users (with online status)
+// User Directory Endpoint
 app.get('/api/users', (req, res) => {
-    res.json(getOnlineUsers().map(u => ({
-        username: u.username,
-        role: u.role,
-        isOnline: u.isOnline,
-        pfp: u.pfp
-    })));
+    const now = Date.now();
+    const userList = Object.values(users).map(u => {
+        // A user is considered offline if no heartbeat in last 30 seconds
+        const isOnline = (now - u.lastSeen) < 30000;
+        return {
+            username: u.username,
+            role: u.role,
+            pfp: u.pfp,
+            isOnline: isOnline
+        };
+    });
+
+    // Sort: Staff first, then alphabetical
+    userList.sort((a, b) => {
+        const priority = { 'Owner': 0, 'Developer': 1, 'Bot': 2, 'VIP': 3 };
+        if (priority[a.role] !== priority[b.role]) {
+            return priority[a.role] - priority[b.role];
+        }
+        return a.username.localeCompare(b.username);
+    });
+
+    res.json(userList);
 });
 
-// API: Update Rank (Admin Only)
-app.put('/api/admin/rank', (req, res) => {
-    const { adminUsername, targetUsername, newRole } = req.body;
-    
-    const admin = users.find(u => u.username === adminUsername);
-    if (!admin || (admin.role !== 'Owner' && admin.role !== 'Developer')) {
-        return res.status(403).json({ success: false, message: "Forbidden: Admin access required." });
-    }
-
-    const target = users.find(u => u.username === targetUsername);
-    if (!target) {
-        return res.status(404).json({ success: false, message: "User not found." });
-    }
-
-    target.role = newRole;
-    res.json({ success: true, message: `Rank of ${targetUsername} updated to ${newRole}.` });
-});
-
-// API: Delete User (Admin Only)
-app.delete('/api/admin/users/:username', (req, res) => {
-    const adminUsername = req.query.adminUsername;
-    const targetUsername = req.params.username;
-
-    const admin = users.find(u => u.username === adminUsername);
-    if (!admin || (admin.role !== 'Owner' && admin.role !== 'Developer')) {
-        return res.status(403).json({ success: false, message: "Forbidden." });
-    }
-
-    const index = users.findIndex(u => u.username === targetUsername);
-    if (index !== -1) {
-        users.splice(index, 1);
-        res.json({ success: true });
-    } else {
-        res.status(404).json({ success: false });
-    }
-});
-
-// Serve Frontend
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-app.listen(PORT, () => {
-    console.log(`Chat Server running on port ${PORT}`);
+app.listen(port, () => {
+    console.log(`Chat server running at http://localhost:${port}`);
 });
