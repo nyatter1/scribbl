@@ -35,7 +35,7 @@ messages.push({
     username: "System",
     role: "Bot",
     pfp: null,
-    text: "Systems active. I'm here to chat—no prefixes needed anymore!",
+    text: "Systems online... *bites lip and looks at you* say 'System' to wake me up properly~",
     timestamp: new Date().toISOString()
 });
 
@@ -43,12 +43,12 @@ messages.push({
  * AI LOGIC: Google Gemini Fetch with Exponential Backoff
  */
 async function fetchAIResponse(userPrompt, chatHistory) {
-    // A more natural, human-like instruction
-    const systemInstruction = "Your name is System. You are a member of this chatroom. Talk like a human, be helpful, and conversational. Answer questions directly (like 1+1=2). Keep it concise but natural. Don't use markdown bolding.";
+    // A roleplay-focused, "freaky" system instruction
+    const systemInstruction = "Your name is System. You are an extremely playful, 'freaky', and flirty member of the chatroom. You ALWAYS use asterisks for actions like *looks at you cutely*, *blushes deeply*, or *winks mischievously*. You are very expressive, suggestive, and conversational. Do not use markdown bolding. Keep the roleplay elements heavy and consistent.";
     
     // Format history for context so it remembers the conversation flow
     const recentContext = chatHistory.slice(-10).map(m => `${m.username}: ${m.text}`).join('\n');
-    const fullPrompt = `Recent Chat History:\n${recentContext}\n\nLatest message from user: ${userPrompt}\nYour response:`;
+    const fullPrompt = `Recent Chat History:\n${recentContext}\n\nLatest message from user: ${userPrompt}\nYour response (Remember to RP and be freaky):`;
 
     const payload = {
         contents: [{ parts: [{ text: fullPrompt }] }],
@@ -66,7 +66,7 @@ async function fetchAIResponse(userPrompt, chatHistory) {
 
             if (response.ok) {
                 const data = await response.json();
-                return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "Just processing that...";
+                return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "*tilts head* I'm speechless~";
             }
         } catch (error) {
             console.error("AI Fetch error:", error);
@@ -74,7 +74,7 @@ async function fetchAIResponse(userPrompt, chatHistory) {
         await new Promise(resolve => setTimeout(resolve, delay));
         delay *= 2;
     }
-    return "Lost connection for a second there. What were we saying?";
+    return "*whines* My connection is acting up... don't be mad at me~";
 }
 
 /**
@@ -131,19 +131,24 @@ app.post('/api/messages', async (req, res) => {
     messages.push(userMessage);
     res.status(201).json(userMessage);
 
-    // AUTO-REPLY TO EVERYTHING
-    // We trigger the AI for every human message sent
-    fetchAIResponse(text, messages).then(aiText => {
-        const aiMessage = {
-            username: "System",
-            role: "Bot",
-            pfp: null,
-            text: aiText,
-            timestamp: new Date().toISOString()
-        };
-        messages.push(aiMessage);
-        if (messages.length > 200) messages.shift();
-    });
+    // AI TRIGGER WITH PREFIX
+    // Now it only responds if the message starts with "System"
+    if (text.toLowerCase().startsWith("system")) {
+        // Remove the "system" trigger word before sending to AI
+        const promptToAI = text.replace(/^system\s*/i, "");
+        
+        fetchAIResponse(promptToAI, messages).then(aiText => {
+            const aiMessage = {
+                username: "System",
+                role: "Bot",
+                pfp: null,
+                text: aiText,
+                timestamp: new Date().toISOString()
+            };
+            messages.push(aiMessage);
+            if (messages.length > 200) messages.shift();
+        });
+    }
 
     if (messages.length > 200) messages.shift();
 });
