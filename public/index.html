@@ -6,12 +6,10 @@
     <title>ChatApp - Global Lobby</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Custom Scrollbar Styling */
         .custom-scrollbar::-webkit-scrollbar { width: 5px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
         
-        /* Message Animation */
         .message-entry { 
             animation: slideIn 0.2s cubic-bezier(0, 0, 0.2, 1) forwards; 
             opacity: 0;
@@ -21,7 +19,6 @@
             to { opacity: 1; transform: translateY(0); } 
         }
 
-        /* Role Badges */
         .role-badge {
             font-size: 8px;
             padding: 2px 6px;
@@ -36,25 +33,58 @@
         .bg-bot { background: rgba(148, 163, 184, 0.1); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.2); }
         .bg-vip { background: rgba(30, 41, 59, 0.5); color: #94a3b8; border: 1px solid rgba(255, 255, 255, 0.05); }
 
-        .pfp-upload-trigger {
+        .profile-trigger {
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .pfp-upload-trigger:hover {
-            filter: brightness(1.2);
-            transform: scale(1.02);
+        .profile-trigger:hover {
+            background: rgba(30, 41, 59, 0.8);
+            transform: translateY(-1px);
         }
-
-        html, body {
-            height: 100%;
-            overflow: hidden;
+        .profile-trigger:active {
+            transform: translateY(0px) scale(0.98);
         }
 
-        /* Sending State */
+        html, body { height: 100%; overflow: hidden; }
         .sending { opacity: 0.6; }
+
+        /* Modal Blur */
+        #pfp-modal {
+            backdrop-filter: blur(8px);
+            display: none;
+        }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 flex flex-col font-sans">
+
+    <!-- PFP Change Modal -->
+    <div id="pfp-modal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-3xl p-8 shadow-2xl scale-in">
+            <h2 class="text-xl font-black text-white uppercase tracking-tighter mb-2">Update Profile</h2>
+            <p class="text-slate-400 text-sm mb-6">Choose a new look for your avatar.</p>
+            
+            <div class="flex flex-col items-center gap-6">
+                <div id="modal-preview-container" class="w-24 h-24 rounded-full bg-slate-800 border-2 border-indigo-500/50 flex items-center justify-center overflow-hidden shadow-inner relative">
+                    <img id="modal-preview-img" src="" class="w-full h-full object-cover hidden">
+                    <span id="modal-preview-initial" class="text-2xl font-black text-slate-500">?</span>
+                </div>
+                
+                <input type="file" id="pfp-input" accept="image/*" class="hidden" onchange="previewImage(event)">
+                <button onclick="document.getElementById('pfp-input').click()" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold text-xs uppercase tracking-widest transition">
+                    Choose Image
+                </button>
+                
+                <div class="flex gap-3 w-full">
+                    <button onclick="closePfpModal()" class="flex-1 py-3 bg-transparent border border-slate-800 text-slate-400 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-slate-800 transition">
+                        Cancel
+                    </button>
+                    <button onclick="saveNewPfp()" class="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-xs uppercase tracking-widest transition shadow-lg">
+                        Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Top Navigation -->
     <nav class="bg-slate-900/80 backdrop-blur-xl border-b border-slate-800 p-4 z-50 flex-shrink-0">
@@ -72,7 +102,8 @@
             </div>
 
             <div class="flex items-center gap-4">
-                <div onclick="window.location.href='/profile.html'" class="pfp-upload-trigger flex items-center gap-3 bg-slate-800/50 border border-slate-700/50 pl-1 pr-4 py-1 rounded-full hover:bg-slate-800 group relative">
+                <!-- PROFILE CLICKABLE AREA -->
+                <div onclick="openPfpModal()" class="profile-trigger flex items-center gap-3 bg-slate-800/40 border border-slate-700/30 pl-1 pr-4 py-1 rounded-full group">
                     <div id="nav-pfp-container" class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden border border-slate-600 relative">
                         <img id="nav-pfp" src="" class="w-full h-full object-cover hidden">
                         <span id="nav-initial" class="text-xs font-bold">?</span>
@@ -96,7 +127,6 @@
     <!-- App Layout -->
     <main class="flex-1 flex max-w-[1600px] mx-auto w-full overflow-hidden">
         
-        <!-- User Sidebar -->
         <aside class="hidden md:flex flex-col w-72 border-r border-slate-900 bg-slate-950/50 p-6 flex-shrink-0 overflow-hidden">
             <div class="flex items-center justify-between mb-6">
                 <h3 class="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Active Users</h3>
@@ -104,7 +134,6 @@
             <div id="user-list" class="flex-1 space-y-3 overflow-y-auto custom-scrollbar pr-2"></div>
         </aside>
 
-        <!-- Chat Container -->
         <section class="flex-1 flex flex-col min-w-0 bg-slate-900/20 relative overflow-hidden">
             <div id="chat-feed" class="flex-1 overflow-y-auto p-6 md:p-8 space-y-6 custom-scrollbar scroll-smooth">
                 <div class="flex flex-col items-center justify-center h-full opacity-20 italic text-sm text-center">
@@ -112,7 +141,6 @@
                 </div>
             </div>
 
-            <!-- Input Bar -->
             <div class="p-6 bg-slate-950 border-t border-slate-900 flex-shrink-0">
                 <form onsubmit="sendMessage(event)" class="max-w-4xl mx-auto relative group">
                     <input type="text" id="msg-input" autocomplete="off"
@@ -130,22 +158,18 @@
     <script>
         let currentUser = null;
         let lastMessageCount = 0;
-        let userTheme = null;
-        let localMessageIds = new Set();
+        let tempPfpData = null;
 
         window.onload = () => {
             const saved = localStorage.getItem('chat_user');
             if (!saved) return window.location.href = '/login.html';
             currentUser = JSON.parse(saved);
 
-            const savedTheme = localStorage.getItem('user_theme');
-            if(savedTheme) userTheme = JSON.parse(savedTheme);
-
             setupUI();
             syncChat();
             syncUsers();
 
-            setInterval(syncChat, 1000); // Polling faster for responsiveness
+            setInterval(syncChat, 1000); 
             setInterval(syncUsers, 4000);
             setInterval(heartbeat, 8000);
         };
@@ -154,24 +178,81 @@
             document.getElementById('nav-name').innerText = currentUser.username;
             document.getElementById('nav-role').innerText = currentUser.role || 'VIP';
             
-            const img = document.getElementById('nav-pfp');
-            const initial = document.getElementById('nav-initial');
-            
-            if (currentUser.pfp) {
-                img.src = currentUser.pfp;
-                img.classList.remove('hidden');
-                initial.classList.add('hidden');
-            } else {
-                img.classList.add('hidden');
-                initial.classList.remove('hidden');
-                initial.innerText = currentUser.username[0].toUpperCase();
-            }
+            updatePfpUI(currentUser.pfp);
+        }
 
-            if(userTheme) {
-                document.getElementById('send-btn').style.backgroundColor = userTheme.accent;
+        function updatePfpUI(pfpUrl) {
+            const navImg = document.getElementById('nav-pfp');
+            const navInitial = document.getElementById('nav-initial');
+            
+            if (pfpUrl) {
+                navImg.src = pfpUrl;
+                navImg.classList.remove('hidden');
+                navInitial.classList.add('hidden');
+            } else {
+                navImg.classList.add('hidden');
+                navInitial.classList.remove('hidden');
+                navInitial.innerText = currentUser.username[0].toUpperCase();
             }
         }
 
+        // --- PFP MODAL LOGIC ---
+        function openPfpModal() {
+            const modal = document.getElementById('pfp-modal');
+            const previewImg = document.getElementById('modal-preview-img');
+            const previewInitial = document.getElementById('modal-preview-initial');
+            
+            if (currentUser.pfp) {
+                previewImg.src = currentUser.pfp;
+                previewImg.classList.remove('hidden');
+                previewInitial.classList.add('hidden');
+            } else {
+                previewInitial.innerText = currentUser.username[0].toUpperCase();
+                previewImg.classList.add('hidden');
+                previewInitial.classList.remove('hidden');
+            }
+            
+            modal.style.display = 'flex';
+        }
+
+        function closePfpModal() {
+            document.getElementById('pfp-modal').style.display = 'none';
+            tempPfpData = null;
+        }
+
+        function previewImage(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                tempPfpData = e.target.result;
+                const previewImg = document.getElementById('modal-preview-img');
+                const previewInitial = document.getElementById('modal-preview-initial');
+                
+                previewImg.src = tempPfpData;
+                previewImg.classList.remove('hidden');
+                previewInitial.classList.add('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function saveNewPfp() {
+            if (!tempPfpData) return closePfpModal();
+
+            // Update local state
+            currentUser.pfp = tempPfpData;
+            localStorage.setItem('chat_user', JSON.stringify(currentUser));
+            
+            // Update UI
+            updatePfpUI(tempPfpData);
+            
+            // Sync with backend immediately
+            heartbeat();
+            closePfpModal();
+        }
+
+        // --- CHAT LOGIC ---
         async function heartbeat() {
             try {
                 await fetch('/api/heartbeat', {
@@ -191,27 +272,18 @@
                 const messages = await res.json();
                 const feed = document.getElementById('chat-feed');
                 
-                // Only full re-render if count changes
                 if (messages.length !== lastMessageCount) {
                     const shouldScroll = feed.scrollTop + feed.clientHeight >= feed.scrollHeight - 100;
-                    
-                    // Clear local temporary messages once they exist on server
-                    localMessageIds.clear();
-                    
                     feed.innerHTML = messages.map(m => renderMessage(m)).join('');
                     lastMessageCount = messages.length;
-
-                    if (shouldScroll) {
-                        feed.scrollTop = feed.scrollHeight;
-                    }
+                    if (shouldScroll) feed.scrollTop = feed.scrollHeight;
                 }
-            } catch (e) { console.error("Sync error"); }
+            } catch (e) {}
         }
 
         function renderMessage(m, isTemporary = false) {
             const isMe = m.username === currentUser.username;
             const time = m.timestamp ? new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now';
-            const accent = (isMe && userTheme) ? userTheme.accent : null;
 
             return `
                 <div class="message-entry flex items-start gap-4 ${isMe ? 'flex-row-reverse' : ''} ${isTemporary ? 'sending' : ''}">
@@ -224,8 +296,7 @@
                             <span class="role-badge ${getRoleClass(m.role)}">${m.role}</span>
                             <span class="text-[9px] text-slate-600 font-bold">${time}</span>
                         </div>
-                        <div class="${isMe ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-slate-800 text-slate-100 rounded-tl-none'} px-5 py-3 rounded-2xl shadow-xl" 
-                             style="${isMe && accent ? `background-color: ${accent}` : ''}">
+                        <div class="${isMe ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-slate-800 text-slate-100 rounded-tl-none'} px-5 py-3 rounded-2xl shadow-xl">
                             <p class="text-[14px] font-medium leading-relaxed break-words">${m.text}</p>
                         </div>
                     </div>
@@ -239,7 +310,6 @@
                 const users = await res.json();
                 const list = document.getElementById('user-list');
                 const count = document.getElementById('online-count');
-                
                 const onlineUsers = users.filter(u => u.isOnline);
                 count.innerText = `${onlineUsers.length} Users Online`;
 
@@ -268,7 +338,6 @@
             const text = input.value.trim();
             if (!text) return;
 
-            // OPTIMISTIC UPDATE: Append message immediately
             const feed = document.getElementById('chat-feed');
             const tempMsg = {
                 username: currentUser.username,
@@ -288,9 +357,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(tempMsg)
                 });
-            } catch (e) {
-                console.error("Failed to send");
-            }
+            } catch (e) {}
         }
 
         function getRoleClass(role) {
