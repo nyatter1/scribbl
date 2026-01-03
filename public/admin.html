@@ -46,7 +46,7 @@
         </nav>
         <div class="p-4 border-t border-slate-800">
             <div class="glass p-3 rounded-xl flex items-center gap-3">
-                <img src="https://ui-avatars.com/api/?name=Admin&background=6366f1&color=fff" class="w-8 h-8 rounded-lg" id="admin-pfp">
+                <div id="admin-pfp-container" class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-bold text-white text-xs">A</div>
                 <div>
                     <p class="text-xs font-bold text-white" id="current-user-name">Root Admin</p>
                     <p class="text-[9px] text-green-400 uppercase font-black tracking-widest">Master Auth</p>
@@ -60,6 +60,7 @@
         <header class="h-16 border-b border-slate-800/50 bg-slate-950/50 backdrop-blur-sm flex items-center justify-between px-8">
             <h2 id="page-title" class="text-xl font-bold text-white">Dashboard Overview</h2>
             <div class="flex items-center gap-4">
+                <button onclick="location.href='/index.html'" class="text-[10px] uppercase font-bold text-slate-400 hover:text-white transition">Exit Terminal</button>
                 <div class="flex items-center gap-2 px-3 py-1 bg-slate-900 rounded-full border border-slate-800">
                     <span class="w-2 h-2 rounded-full bg-green-500 status-dot"></span>
                     <span class="text-[10px] uppercase font-bold text-slate-400">Live Sync Active</span>
@@ -83,20 +84,20 @@
                     <p class="text-3xl font-black text-indigo-400" id="stat-live-msgs">0</p>
                 </div>
                 <div class="glass p-6 rounded-3xl relative overflow-hidden group">
-                    <h3 class="text-slate-500 text-xs font-black uppercase tracking-widest mb-3">Sync Latency</h3>
-                    <div class="text-xs font-mono text-green-400">Stable (14ms)</div>
+                    <h3 class="text-slate-500 text-xs font-black uppercase tracking-widest mb-3">Sync Status</h3>
+                    <div class="text-xs font-mono text-green-400" id="sync-latency">Connected</div>
                 </div>
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div class="lg:col-span-2 glass rounded-3xl p-6">
-                    <h3 class="text-lg font-bold text-white mb-6">Real-time Connection Flow</h3>
+                    <h3 class="text-lg font-bold text-white mb-6">Recent Administrative Actions</h3>
                     <div class="overflow-x-auto">
                         <table class="w-full text-left">
                             <thead>
                                 <tr class="text-[10px] uppercase text-slate-500 font-black border-b border-slate-800">
-                                    <th class="pb-3 pl-2">User</th>
-                                    <th class="pb-3">Action</th>
+                                    <th class="pb-3 pl-2">Admin</th>
+                                    <th class="pb-3">Action Details</th>
                                     <th class="pb-3 text-right">Time</th>
                                 </tr>
                             </thead>
@@ -115,7 +116,7 @@
         <!-- View: User Management -->
         <div id="view-users" class="hidden flex-1 overflow-y-auto p-8 custom-scrollbar fade-in">
             <div class="flex justify-between items-center mb-6 glass p-4 rounded-2xl">
-                <input type="text" id="user-search" placeholder="Filter users..." class="bg-slate-950 border border-slate-800 rounded-xl py-2 px-4 text-sm text-white w-full max-w-md focus:outline-none focus:border-indigo-500 transition">
+                <input type="text" id="user-search" placeholder="Filter users by identity..." class="bg-slate-950 border border-slate-800 rounded-xl py-2 px-4 text-sm text-white w-full max-w-md focus:outline-none focus:border-indigo-500 transition">
             </div>
             <div class="glass rounded-3xl overflow-hidden">
                 <div class="overflow-x-auto">
@@ -123,8 +124,8 @@
                         <thead class="bg-slate-900/50">
                             <tr class="text-[10px] uppercase text-slate-500 font-black">
                                 <th class="py-4 pl-6">Identity</th>
+                                <th class="py-4">Role</th>
                                 <th class="py-4">Status</th>
-                                <th class="py-4">Current Mute</th>
                                 <th class="py-4 text-right pr-6">Action</th>
                             </tr>
                         </thead>
@@ -150,7 +151,7 @@
             <div class="p-6 space-y-4">
                 <div>
                     <label class="block text-[10px] uppercase font-black text-slate-500 mb-1">Reason for Action</label>
-                    <textarea id="action-reason" rows="3" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition" placeholder="Violation of terms..."></textarea>
+                    <textarea id="action-reason" rows="3" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition" placeholder="Violation of community terms..."></textarea>
                 </div>
                 <div id="duration-container">
                     <label class="block text-[10px] uppercase font-black text-slate-500 mb-1">Mute Duration</label>
@@ -158,7 +159,6 @@
                         <option value="5">5 Minutes</option>
                         <option value="60">1 Hour</option>
                         <option value="1440">24 Hours</option>
-                        <option value="10080">7 Days</option>
                         <option value="-1">Permanent</option>
                     </select>
                 </div>
@@ -179,10 +179,10 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
-        import { getFirestore, collection, doc, onSnapshot, updateDoc, query, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+        import { getFirestore, collection, doc, onSnapshot, updateDoc, query, addDoc, serverTimestamp, getDoc } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
         import { getAuth, onAuthStateChanged, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
 
-        // Global State
+        // Global Setup
         const firebaseConfig = JSON.parse(__firebase_config);
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
@@ -193,12 +193,13 @@
         let currentTargetUser = null;
         let currentActionType = 'mute';
 
-        // Helper: Path Builder
-        const getPublicPath = (col) => collection(db, 'artifacts', appId, 'public', 'data', col);
-        const getUserDoc = (uid) => doc(db, 'artifacts', appId, 'public', 'data', 'users', uid);
+        // Firestore Paths
+        const usersCol = collection(db, 'artifacts', appId, 'public', 'data', 'users');
+        const logsCol = collection(db, 'artifacts', appId, 'public', 'data', 'logs');
+        const msgsCol = collection(db, 'artifacts', appId, 'public', 'data', 'messages');
 
-        // Auth Listener
-        const initAuth = async () => {
+        // Auth and Init
+        const startTerminal = async () => {
             if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                 await signInWithCustomToken(auth, __initial_auth_token);
             } else {
@@ -206,103 +207,121 @@
             }
         };
 
-        onAuthStateChanged(auth, (user) => {
+        onAuthStateChanged(auth, async (user) => {
             if (user) {
-                initRealtimeSync(user);
-                document.getElementById('current-user-name').innerText = user.uid.substring(0, 8);
-                logToSystem(`Root terminal initialized for session ${user.uid}`, 'auth');
+                // Check if user is actually admin/owner
+                const userRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', user.uid);
+                const userSnap = await getDoc(userRef);
+                const userData = userSnap.data();
+
+                document.getElementById('current-user-name').innerText = userData?.username || user.uid.substring(0, 8);
+                if (userData?.profilePic) {
+                    document.getElementById('admin-pfp-container').innerHTML = `<img src="${userData.profilePic}" class="w-full h-full object-cover rounded-lg">`;
+                }
+
+                initSync();
+                logToSystem(`Root terminal accessed by ${userData?.username || 'UID:' + user.uid.substring(0,5)}`, 'auth');
             } else {
-                initAuth();
+                startTerminal();
             }
         });
 
-        function initRealtimeSync(user) {
-            // User Directory Listener
-            onSnapshot(getPublicPath('users'), (snapshot) => {
-                users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        function initSync() {
+            // 1. Users Sync
+            onSnapshot(usersCol, (snap) => {
+                users = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 renderUserTable();
                 updateStats();
-            }, (error) => console.error("User list failed:", error));
+            }, (err) => console.error("Users sync failed", err));
 
-            // System Logs Listener
-            onSnapshot(getPublicPath('logs'), (snapshot) => {
+            // 2. Logs Sync
+            onSnapshot(logsCol, (snap) => {
                 const logsDiv = document.getElementById('system-logs');
-                snapshot.docChanges().forEach(change => {
+                const streamDiv = document.getElementById('event-stream');
+                
+                snap.docChanges().forEach(change => {
                     if (change.type === "added") {
                         const data = change.doc.data();
+                        const ts = data.timestamp?.seconds ? new Date(data.timestamp.seconds * 1000).toLocaleTimeString() : 'NOW';
+                        
+                        // Full Log
                         const line = document.createElement('div');
-                        line.className = "flex gap-2 py-1 border-b border-slate-800/20 last:border-0";
-                        const ts = data.timestamp?.seconds ? new Date(data.timestamp.seconds * 1000).toLocaleTimeString() : new Date().toLocaleTimeString();
-                        line.innerHTML = `
-                            <span class="text-slate-600 font-mono">[${ts}]</span>
-                            <span class="font-bold uppercase w-12 ${getTypeColor(data.type)}">${data.type}</span>
-                            <span class="text-slate-300">${data.message}</span>
-                        `;
+                        line.className = "py-1 border-b border-slate-800/20";
+                        line.innerHTML = `<span class="text-slate-600">[${ts}]</span> <span class="font-bold uppercase ${getLogColor(data.type)}">${data.type}</span>: ${data.message}`;
                         logsDiv.prepend(line);
+
+                        // Mini Stream
+                        const streamLine = document.createElement('div');
+                        streamLine.className = "text-slate-500 truncate";
+                        streamLine.innerHTML = `> ${data.message}`;
+                        streamDiv.prepend(streamLine);
+                        if (streamDiv.children.length > 20) streamDiv.lastChild.remove();
                     }
                 });
-            }, (error) => console.error("Logs listener failed:", error));
-            
-            // Stats Listener (Messages)
-            onSnapshot(getPublicPath('messages'), (snapshot) => {
-                document.getElementById('stat-live-msgs').innerText = snapshot.size;
+            });
+
+            // 3. Messages Sync (Count Only)
+            onSnapshot(msgsCol, (snap) => {
+                document.getElementById('stat-live-msgs').innerText = snap.size;
             });
         }
 
-        function getTypeColor(type) {
-            switch(type?.toLowerCase()) {
-                case 'auth': return 'text-blue-400';
-                case 'warn': return 'text-yellow-400';
-                case 'err': return 'text-red-400';
-                default: return 'text-indigo-400';
-            }
+        function getLogColor(type) {
+            if (type === 'auth') return 'text-blue-400';
+            if (type === 'err') return 'text-red-400';
+            if (type === 'warn') return 'text-yellow-400';
+            return 'text-indigo-400';
         }
 
+        // UI Handlers
         window.switchTab = (tabId) => {
             ['dashboard', 'users', 'logs'].forEach(id => {
                 document.getElementById(`view-${id}`).classList.add('hidden');
-                document.getElementById(`nav-${id}`).className = 'nav-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/50 transition';
+                document.getElementById(`nav-${id}`).classList.replace('bg-indigo-600/10', 'text-slate-400');
+                document.getElementById(`nav-${id}`).classList.remove('text-indigo-400', 'border', 'border-indigo-500/30');
             });
             document.getElementById(`view-${tabId}`).classList.remove('hidden');
-            document.getElementById(`nav-${tabId}`).className = 'nav-item w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-indigo-600/10 text-indigo-400 border border-indigo-500/30 transition shadow-lg';
-            document.getElementById('page-title').innerText = tabId.charAt(0).toUpperCase() + tabId.slice(1);
+            document.getElementById(`nav-${tabId}`).classList.add('bg-indigo-600/10', 'text-indigo-400', 'border', 'border-indigo-500/30');
+            document.getElementById('page-title').innerText = tabId.charAt(0).toUpperCase() + tabId.slice(1) + " Mgmt";
         };
 
         function renderUserTable() {
             const tbody = document.getElementById('users-table-body');
             tbody.innerHTML = users.map(u => {
+                const username = u.username || 'Ghost';
                 const isMuted = u.isMuted && (!u.muteUntil || u.muteUntil === -1 || u.muteUntil > Date.now());
-                const username = u.username || 'Anonymous';
+                const roleColor = u.role === 'Owner' ? 'text-amber-400' : (u.role === 'Developer' ? 'text-indigo-400' : 'text-slate-400');
+                
                 return `
                     <tr class="hover:bg-slate-800/20 transition group">
                         <td class="py-4 pl-6">
                             <div class="flex items-center gap-3">
-                                <img src="https://ui-avatars.com/api/?name=${username}&background=random" class="w-10 h-10 rounded-xl">
+                                <div class="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center overflow-hidden">
+                                    ${u.profilePic ? `<img src="${u.profilePic}" class="w-full h-full object-cover">` : `<span class="text-xs font-bold text-slate-500">${username.charAt(0)}</span>`}
+                                </div>
                                 <div>
                                     <p class="text-sm font-bold text-white">@${username}</p>
-                                    <p class="text-[9px] font-mono text-slate-500">${u.id.substring(0,12)}...</p>
+                                    <p class="text-[9px] font-mono text-slate-500 uppercase tracking-tighter">${u.id}</p>
                                 </div>
                             </div>
                         </td>
                         <td class="py-4">
-                            <span class="flex items-center gap-1.5 text-[10px] font-black ${u.isOnline ? 'text-green-400' : 'text-slate-600'}">
-                                <span class="w-1.5 h-1.5 rounded-full bg-current ${u.isOnline ? 'status-dot' : ''}"></span>
-                                ${u.isOnline ? 'ONLINE' : 'OFFLINE'}
-                            </span>
+                            <span class="text-[10px] font-black uppercase tracking-widest ${roleColor}">${u.role || 'Member'}</span>
                         </td>
                         <td class="py-4">
-                            ${isMuted ? 
-                                `<span class="text-[10px] font-bold text-red-400 bg-red-400/10 px-2 py-0.5 rounded border border-red-500/20">MUTED</span>` : 
-                                `<span class="text-[10px] font-bold text-slate-500 bg-slate-800 px-2 py-0.5 rounded">CLEAN</span>`
-                            }
+                            <div class="flex items-center gap-2">
+                                <span class="w-1.5 h-1.5 rounded-full ${u.isOnline ? 'bg-green-500 status-dot' : 'bg-slate-700'}"></span>
+                                <span class="text-[10px] font-black ${u.isOnline ? 'text-white' : 'text-slate-600'}">${u.isOnline ? 'LIVE' : 'IDLE'}</span>
+                                ${isMuted ? `<span class="ml-2 text-[9px] bg-red-500/20 text-red-400 px-1 rounded border border-red-500/30">MUTED</span>` : ''}
+                            </div>
                         </td>
                         <td class="py-4 pr-6 text-right">
                             <div class="flex justify-end gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition">
                                 <button onclick="openModal('${u.id}', 'mute')" class="p-2 rounded-lg bg-slate-800 hover:text-indigo-400 transition" title="Mute User">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg>
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
                                 </button>
                                 <button onclick="openModal('${u.id}', 'kick')" class="p-2 rounded-lg bg-slate-800 hover:text-red-400 transition" title="Kick User">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
                                 </button>
                             </div>
                         </td>
@@ -316,32 +335,18 @@
             document.getElementById('stat-muted-users').innerText = users.filter(u => u.isMuted).length;
         }
 
+        // Action Logic
         window.openModal = (uid, type) => {
             currentTargetUser = users.find(u => u.id === uid);
             if(!currentTargetUser) return;
             currentActionType = type;
+            
             const modal = document.getElementById('action-modal');
-            const title = document.getElementById('modal-title');
-            const subtitle = document.getElementById('modal-subtitle');
-            const duration = document.getElementById('duration-container');
-            const btn = document.getElementById('confirm-action-btn');
-
+            document.getElementById('modal-title').innerText = type === 'mute' ? 'Mute Identity' : 'Kick Identity';
+            document.getElementById('modal-subtitle').innerText = `Target: @${currentTargetUser.username || currentTargetUser.id}`;
+            document.getElementById('duration-container').style.display = type === 'mute' ? 'block' : 'none';
             document.getElementById('action-reason').value = '';
             
-            if (type === 'mute') {
-                title.innerHTML = `Mute Session`;
-                subtitle.innerText = `Restrict communication for @${currentTargetUser.username || 'User'}`;
-                duration.classList.remove('hidden');
-                btn.innerText = 'Apply Restriction';
-                btn.className = 'flex-[2] py-3 rounded-xl bg-indigo-600 text-white font-bold text-sm hover:bg-indigo-500 transition';
-            } else {
-                title.innerHTML = `Kick Session`;
-                subtitle.innerText = `Terminate connection for @${currentTargetUser.username || 'User'}`;
-                duration.classList.add('hidden');
-                btn.innerText = 'Terminate Session';
-                btn.className = 'flex-[2] py-3 rounded-xl bg-red-600 text-white font-bold text-sm hover:bg-red-500 transition';
-            }
-
             modal.classList.add('active');
             modal.classList.remove('hidden');
         };
@@ -352,78 +357,59 @@
         };
 
         document.getElementById('confirm-action-btn').onclick = async () => {
-            if (!auth.currentUser) return;
-            const reason = document.getElementById('action-reason').value || "Administrative action";
+            if (!auth.currentUser || !currentTargetUser) return;
+            const reason = document.getElementById('action-reason').value || "No reason provided.";
             const duration = parseInt(document.getElementById('action-duration').value);
-            
+
             try {
-                const userRef = getUserDoc(currentTargetUser.id);
+                const userRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', currentTargetUser.id);
+                
                 if (currentActionType === 'mute') {
                     const muteUntil = duration === -1 ? -1 : Date.now() + (duration * 60000);
-                    await updateDoc(userRef, {
-                        isMuted: true,
-                        muteReason: reason,
-                        muteUntil: muteUntil,
-                        lastAction: 'mute',
-                        actionBy: auth.currentUser.uid
-                    });
-                    showToast(`@${currentTargetUser.username || 'User'} muted.`);
-                    logToSystem(`Muted @${currentTargetUser.username || 'User'} | Reason: ${reason}`, 'warn');
+                    await updateDoc(userRef, { isMuted: true, muteUntil, muteReason: reason });
+                    logToSystem(`Muted @${currentTargetUser.username} for ${duration}m | Reason: ${reason}`, 'warn');
                 } else {
-                    await updateDoc(userRef, {
-                        isKicked: true,
-                        kickReason: reason,
-                        lastAction: 'kick',
-                        actionBy: auth.currentUser.uid
-                    });
-                    showToast(`@${currentTargetUser.username || 'User'} kicked.`);
-                    logToSystem(`Kicked @${currentTargetUser.username || 'User'} | Reason: ${reason}`, 'err');
+                    await updateDoc(userRef, { isKicked: true, kickReason: reason });
+                    logToSystem(`Kicked @${currentTargetUser.username} | Reason: ${reason}`, 'err');
                 }
+
+                showToast(`Action executed on @${currentTargetUser.username}`);
                 closeModal();
-            } catch (e) {
-                console.error(e);
-                showToast("Action failed: Insufficient permissions.");
+            } catch (err) {
+                showToast("Execution failed: Perms error.");
             }
         };
 
         async function logToSystem(message, type) {
-            if (!auth.currentUser) return;
             try {
-                await addDoc(getPublicPath('logs'), { 
-                    message, 
-                    type, 
-                    timestamp: serverTimestamp(),
-                    uid: auth.currentUser.uid
-                });
+                const adminName = document.getElementById('current-user-name').innerText;
+                await addDoc(logsCol, { message, type, timestamp: serverTimestamp(), admin: adminName });
                 
+                // Add to Flow Table
                 const flow = document.getElementById('flow-table');
                 const row = document.createElement('tr');
                 row.className = "hover:bg-slate-800/10 transition";
-                row.innerHTML = `
-                    <td class="py-2 pl-2 text-indigo-400 font-bold">Admin</td>
-                    <td class="py-2 text-slate-400 text-xs">${message}</td>
-                    <td class="py-2 text-right text-[10px] text-slate-600">${new Date().toLocaleTimeString()}</td>
-                `;
+                row.innerHTML = `<td class="py-2 pl-2 text-indigo-400 font-bold">${adminName}</td><td class="py-2 text-slate-400 text-xs">${message}</td><td class="py-2 text-right text-[10px] text-slate-600">JUST NOW</td>`;
                 flow.prepend(row);
-                if (flow.children.length > 8) flow.lastChild.remove();
-            } catch (e) { console.error("Logging error:", e); }
+                if (flow.children.length > 10) flow.lastChild.remove();
+            } catch(e) {}
         }
 
         function showToast(msg) {
             const toast = document.getElementById('toast');
             document.getElementById('toast-msg').innerText = msg;
-            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.replace('translate-y-20', 'translate-y-0');
+            toast.classList.replace('opacity-0', 'opacity-100');
             setTimeout(() => {
-                toast.classList.add('translate-y-20', 'opacity-0');
+                toast.classList.replace('translate-y-0', 'translate-y-20');
+                toast.classList.replace('opacity-100', 'opacity-0');
             }, 3000);
         }
 
         document.getElementById('user-search').addEventListener('input', (e) => {
             const val = e.target.value.toLowerCase();
             const rows = document.querySelectorAll('#users-table-body tr');
-            rows.forEach(row => {
-                row.style.display = row.innerText.toLowerCase().includes(val) ? '' : 'none';
-            });
+            rows.forEach(r => r.style.display = r.innerText.toLowerCase().includes(val) ? '' : 'none');
         });
     </script>
 </body>
