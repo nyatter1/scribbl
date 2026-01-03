@@ -13,7 +13,6 @@ const io = new Server(server, {
 });
 
 // --- CONFIGURATION ---
-// Using the provided URI - ensure your IP is whitelisted in MongoDB Atlas
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://hayden:123password123@cluster0.57lnswh.mongodb.net/vikvok_live?retryWrites=true&w=majority";
 const PORT = process.env.PORT || 3000;
 
@@ -26,12 +25,13 @@ mongoose.connect(MONGODB_URI)
 const userSchema = new mongoose.Schema({
     username: { type: String, required: true, unique: true },
     password: { type: String, required: true },
-    email: String,
-    pfp: String,
+    email: { type: String, default: "" },
+    pfp: { type: String, default: "" },
     role: { type: String, default: 'Member' },
     isOnline: { type: Boolean, default: false },
-    isMuted: { type: Boolean, default: false }, // Added for Admin Panel
-    isKicked: { type: Boolean, default: false }, // Added for Admin Panel
+    isMuted: { type: Boolean, default: false },
+    muteUntil: { type: Number, default: null }, // Unix timestamp for expiration
+    isKicked: { type: Boolean, default: false },
     kickReason: { type: String, default: "" },
     lastSeen: { type: Number, default: Date.now },
     bio: { type: String, default: "" }
@@ -78,7 +78,7 @@ app.post('/api/auth/register', async (req, res) => {
         delete userObj.password;
         res.json({ success: true, user: userObj });
     } catch (err) {
-        res.status(500).json({ success: false, message: "Server error during registration" });
+        res.status(500).json({ success: false, message: "Registration Error" });
     }
 });
 
@@ -99,7 +99,7 @@ app.post('/api/auth/login', async (req, res) => {
         delete userObj.password;
         res.json({ success: true, user: userObj });
     } catch (err) {
-        res.status(500).json({ success: false, message: "Server error during login" });
+        res.status(500).json({ success: false, message: "Login Error" });
     }
 });
 
@@ -120,16 +120,19 @@ app.put('/api/users/profile', async (req, res) => {
         ).select('-password');
 
         if (!updatedUser) return res.status(404).json({ success: false, message: "User not found" });
+        
+        // Notify chat of profile changes
+        io.emit('user_updated', updatedUser);
         res.json({ success: true, user: updatedUser });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
     }
 });
 
-// --- ADMIN API (FOR PANEL) ---
+// --- ADMIN API (FOR ADMIN.HTML) ---
 app.get('/api/users', async (req, res) => {
     try {
-        const users = await User.find({}, '-password');
+        const users = await User.find({}, '-password').sort({ lastSeen: -1 });
         res.json(users);
     } catch (err) {
         res.status(500).send("Error fetching users");
@@ -140,8 +143,8 @@ app.put('/api/admin/rank', async (req, res) => {
     const { adminUsername, targetUsername, newRole } = req.body;
     try {
         const admin = await User.findOne({ username: adminUsername });
-        if (!admin || (admin.role !== 'Developer' && admin.role !== 'Owner')) {
-            return res.status(403).json({ success: false, message: "Clearance Level Insufficient" });
+        if (!admin || !['Developer', 'Owner'].includes(admin.role)) {
+            return res.status(403).json({ success: false, message: "Insufficient Clearance" });
         }
 
         const updated = await User.findOneAndUpdate(
@@ -150,23 +153,28 @@ app.put('/api/admin/rank', async (req, res) => {
             { new: true }
         ).select('-password');
         
-        // Notify all clients of the rank change
         io.emit('user_updated', updated);
-        res.json({ success: true });
+        res.json({ success: true, user: updated });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
     }
 });
 
-// Mute/Unmute Logic
 app.put('/api/admin/mute', async (req, res) => {
-    const { adminUsername, targetUsername, isMuted } = req.body;
+    const { adminUsername, targetUsername, isMuted, duration } = req.body;
     try {
         const admin = await User.findOne({ username: adminUsername });
-        if (!admin || (admin.role !== 'Developer' && admin.role !== 'Owner')) return res.sendStatus(403);
+        if (!admin || !['Developer', 'Owner'].includes(admin.role)) return res.sendStatus(403);
         
-        const updated = await User.findOneAndUpdate({ username: targetUsername }, { isMuted }, { new: true });
-        io.emit('user_muted', { username: targetUsername, isMuted });
+        const muteUntil = isMuted ? (duration === -1 ? -1 : Date.now() + (duration * 60000)) : null;
+        
+        const updated = await User.findOneAndUpdate(
+            { username: targetUsername }, 
+            { isMuted, muteUntil }, 
+            { new: true }
+        ).select('-password');
+
+        io.emit('user_muted', { username: targetUsername, isMuted, muteUntil });
         res.json({ success: true });
     } catch (err) { res.status(500).send(err.message); }
 });
@@ -176,19 +184,15 @@ app.delete('/api/admin/users/:username', async (req, res) => {
     const { username } = req.params;
     try {
         const admin = await User.findOne({ username: adminUsername });
-        if (!admin || (admin.role !== 'Developer' && admin.role !== 'Owner')) {
-            return res.status(403).send("Unauthorized");
-        }
+        if (!admin || !['Developer', 'Owner'].includes(admin.role)) return res.status(403).send("Unauthorized");
         
-        // Broadcast kick before deletion
+        // Force log out via socket
         io.emit('user_kicked', { username, reason: "Administrative Removal" });
         
         await User.findOneAndDelete({ username });
         await Message.deleteMany({ username });
         res.sendStatus(200);
-    } catch (err) {
-        res.status(500).send(err.message);
-    }
+    } catch (err) { res.status(500).send(err.message); }
 });
 
 // --- SOCKET.IO REAL-TIME ENGINE ---
@@ -212,11 +216,14 @@ io.on('connection', (socket) => {
                 pfp: user.pfp,
                 bio: user.bio,
                 isOnline: true,
-                isMuted: user.isMuted
+                isMuted: user.isMuted,
+                muteUntil: user.muteUntil
             };
             activeConnections.set(socket.id, publicUser);
 
-            const history = await Message.find({ isSecret: false }).sort({ timestamp: -1 }).limit(50);
+            // Fetch public history
+            const history = await Message.find({ isSecret: false }).sort({ timestamp: -1 }).limit(100);
+            
             socket.emit('init_data', {
                 history: history.reverse(),
                 users: Array.from(activeConnections.values())
@@ -230,9 +237,17 @@ io.on('connection', (socket) => {
         const userInSession = activeConnections.get(socket.id);
         if (!userInSession) return;
 
-        // Check DB for mute status to prevent spoofing
         const userDb = await User.findOne({ username: userInSession.username });
-        if (userDb && userDb.isMuted) return;
+        if (userDb && userDb.isMuted) {
+            // Check if mute expired
+            if (userDb.muteUntil !== -1 && userDb.muteUntil < Date.now()) {
+                userDb.isMuted = false;
+                userDb.muteUntil = null;
+                await userDb.save();
+            } else {
+                return socket.emit('error_msg', { text: "You are currently muted." });
+            }
+        }
 
         const newMessage = new Message({
             username: userInSession.username,
@@ -248,15 +263,14 @@ io.on('connection', (socket) => {
 
     socket.on('dev_command', async (data) => {
         const user = activeConnections.get(socket.id);
-        if (!user || (user.role !== 'Developer' && user.role !== 'Owner')) {
+        if (!user || !['Developer', 'Owner'].includes(user.role)) {
             return socket.emit('terminal_response', { text: "Access Denied", color: "text-red-500" });
         }
 
-        const { command } = data;
-        if (command === 'clear') {
+        if (data.command === 'clear') {
             await Message.deleteMany({ isSecret: false });
             io.emit('clear_chat');
-            socket.emit('terminal_response', { text: "Chat history wiped.", color: "text-emerald-500" });
+            socket.emit('terminal_response', { text: "Global Chat Wiped.", color: "text-emerald-500" });
         }
     });
 
@@ -276,5 +290,5 @@ app.get('*', (req, res) => {
 
 server.listen(PORT, () => {
     console.log(`[SYSTEM] Node running on port ${PORT}`);
-    console.log(`[NETWORK] Socket.io active for Real-time Admin Control`);
+    console.log(`[NETWORK] Socket.io active for Admin Control`);
 });
