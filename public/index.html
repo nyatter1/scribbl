@@ -59,7 +59,7 @@
             <div class="flex items-center gap-4 relative">
                 <div id="self-profile-trigger" onclick="toggleDropdown(event)" class="flex items-center gap-3 cursor-pointer p-1 pr-3 hover:bg-slate-800 rounded-full transition border border-transparent hover:border-slate-700">
                     <img id="header-pfp" src="" class="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 object-cover">
-                    <div class="flex flex-col">
+                    <div class="flex flex-col text-left">
                         <span id="header-username" class="text-xs font-bold text-white">@username</span>
                         <span id="header-rank" class="text-[8px] text-indigo-400 uppercase font-black">Rank</span>
                     </div>
@@ -78,7 +78,7 @@
                         My Profile
                     </a>
 
-                    <!-- Admin Panel - Only for Developer/Owner rank -->
+                    <!-- Admin Panel - Only for Developer rank -->
                     <a id="admin-panel-btn" href="admin.html" class="hidden w-full flex items-center gap-3 px-4 py-3 hover:bg-red-500/10 text-xs font-bold text-red-400 transition text-left">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
@@ -102,7 +102,7 @@
                 <div id="user-list-container" class="flex-grow overflow-y-auto p-3 space-y-6 custom-scrollbar">
                     <div>
                         <div class="px-2 mb-3 flex justify-between items-center">
-                            <span class="text-[10px] font-black uppercase text-indigo-400 tracking-widest">Active Now</span>
+                            <span class="text-[10px] font-black uppercase text-indigo-400 tracking-widest">Online Entities</span>
                             <span id="online-count" class="text-[10px] bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full font-bold">0</span>
                         </div>
                         <div id="online-users" class="space-y-1"></div>
@@ -156,14 +156,14 @@
                         <p id="view-likes" class="text-xl font-black text-white">0</p>
                     </div>
                     <div class="bg-slate-950/50 rounded-2xl p-4 border border-slate-800/50 text-center">
-                        <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Seen</p>
+                        <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Last Seen</p>
                         <p id="view-lastseen" class="text-[10px] font-bold text-slate-400">Loading...</p>
                     </div>
                 </div>
 
                 <div class="w-full flex gap-3">
                     <button id="like-btn" onclick="likeUser()" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-lg shadow-indigo-600/20 active:scale-95 transition-all">
-                        Like
+                        Like Profile
                     </button>
                 </div>
             </div>
@@ -173,21 +173,21 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, getDoc, onSnapshot, query, updateDoc, increment, orderBy, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, doc, setDoc, getDoc, onSnapshot, query, updateDoc, increment, orderBy, addDoc, serverTimestamp, limit } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- Firebase Config ---
+        // Firebase Config and IDs
         const firebaseConfig = JSON.parse(__firebase_config);
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'live-lobby-v6';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-lobby-chat';
 
-        // --- App State ---
+        // Local State
         let currentUserData = null;
         let allUsers = [];
         let messages = [];
 
-        // --- Auth Initialization ---
+        // Authentication & Initialization
         const initAuth = async () => {
             if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                 await signInWithCustomToken(auth, __initial_auth_token);
@@ -202,61 +202,72 @@
                 const snap = await getDoc(userRef);
                 
                 if (!snap.exists()) {
-                    await setDoc(userRef, {
+                    const newUser = {
                         uid: user.uid,
-                        username: "User_" + user.uid.slice(0, 4),
+                        username: "User_" + Math.floor(Math.random() * 9000),
                         role: "Member",
                         likes: 0,
                         lastSeen: Date.now(),
                         pfp: `https://ui-avatars.com/api/?name=U&background=random`,
-                        banner: "linear-gradient(to right, #6366f1, #a855f7)"
-                    });
+                        banner: "linear-gradient(to right, #6366f1, #a855f7)",
+                        bio: "New member of the community."
+                    };
+                    await setDoc(userRef, newUser);
+                    currentUserData = newUser;
                 } else {
+                    currentUserData = snap.data();
                     await updateDoc(userRef, { lastSeen: Date.now() });
                 }
-                setupListeners();
+                
+                setupRealtimeListeners();
+                
+                // Keep presence alive
+                setInterval(() => {
+                    updateDoc(userRef, { lastSeen: Date.now() });
+                }, 60000);
             }
         });
 
-        // --- Real-time Listeners ---
-        function setupListeners() {
-            // Sync Users
+        function setupRealtimeListeners() {
+            // Users listener
             onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'users'), (snapshot) => {
                 allUsers = snapshot.docs.map(doc => doc.data());
-                currentUserData = allUsers.find(u => u.uid === auth.currentUser.uid);
                 refreshUI();
-            });
+            }, (error) => console.error("Users sync error:", error));
 
-            // Sync Messages
+            // Messages listener (limit 50 for performance)
             const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'messages'), orderBy('timestamp', 'asc'));
             onSnapshot(q, (snapshot) => {
                 messages = snapshot.docs.map(doc => doc.data());
                 renderMessages();
-            });
-            
-            // Nexus Bot Static Presence
-            const botRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', 'nexus_bot');
+            }, (error) => console.error("Messages sync error:", error));
+
+            // Ensure System Bot exists
+            const botRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', 'system_bot');
             setDoc(botRef, {
-                uid: 'nexus_bot',
+                uid: 'system_bot',
                 username: 'Nexus_Bot',
-                role: 'System',
-                likes: 999,
-                lastSeen: Date.now(),
-                pfp: 'https://api.dicebear.com/7.x/bottts/svg?seed=Nexus',
-                banner: 'linear-gradient(to right, #10b981, #059669)'
+                role: 'BOT',
+                likes: 9999,
+                lastSeen: Date.now() + 1000000000, // Always in future
+                pfp: 'https://api.dicebear.com/7.x/bottts/svg?seed=Nexus&backgroundColor=10b981',
+                banner: 'linear-gradient(to right, #10b981, #059669)',
+                bio: "Automated Lobby Guardian. Monitoring system health."
             }, { merge: true });
         }
 
-        // --- Core UI Functions ---
+        // UI Refreshing
         function refreshUI() {
             if (!currentUserData) return;
             
-            // Header
+            // Sync current user data if it changed elsewhere
+            const updatedSelf = allUsers.find(u => u.uid === auth.currentUser?.uid);
+            if (updatedSelf) currentUserData = updatedSelf;
+
             document.getElementById('header-username').innerText = `@${currentUserData.username}`;
             document.getElementById('header-rank').innerText = currentUserData.role;
             document.getElementById('header-pfp').src = currentUserData.pfp;
 
-            // Admin Panel Check
             const adminBtn = document.getElementById('admin-panel-btn');
             if (currentUserData.role === "Developer" || currentUserData.role === "Owner") {
                 adminBtn.classList.remove('hidden');
@@ -270,28 +281,34 @@
         function renderUserList() {
             const list = document.getElementById('online-users');
             const now = Date.now();
-            const onlineNow = allUsers.filter(u => (now - u.lastSeen) < 300000);
-            document.getElementById('online-count').innerText = onlineNow.length;
+            
+            // Sort: Online first, then by last seen
+            const sortedUsers = [...allUsers].sort((a, b) => b.lastSeen - a.lastSeen);
+            const onlineCount = allUsers.filter(u => (now - u.lastSeen) < 300000).length;
+            
+            document.getElementById('online-count').innerText = onlineCount;
 
-            list.innerHTML = allUsers.sort((a,b) => b.lastSeen - a.lastSeen).map(u => `
+            list.innerHTML = sortedUsers.map(u => {
+                const isOnline = (now - u.lastSeen) < 300000;
+                return `
                 <div onclick="window.openProfile('${u.uid}')" class="flex items-center gap-3 p-2 hover:bg-slate-800/50 rounded-xl cursor-pointer transition group">
                     <div class="relative">
                         <img src="${u.pfp}" class="w-8 h-8 rounded-lg object-cover bg-slate-800">
-                        <div class="absolute -bottom-1 -right-1 w-2.5 h-2.5 ${ (now - u.lastSeen) < 300000 ? 'bg-green-500 shadow-[0_0_5px_#22c55e]' : 'bg-slate-600'} border-2 border-[#020617] rounded-full"></div>
+                        <div class="absolute -bottom-1 -right-1 w-2.5 h-2.5 ${isOnline ? 'bg-green-500 shadow-[0_0_5px_#22c55e]' : 'bg-slate-600'} border-2 border-[#020617] rounded-full"></div>
                     </div>
                     <div class="overflow-hidden">
                         <p class="text-xs font-bold text-slate-300 truncate group-hover:text-white">${u.username}</p>
                         <span class="rank-badge rank-${u.role.replace(/ /g, '-')}">${u.role}</span>
                     </div>
                 </div>
-            `).join('');
+            `}).join('');
         }
 
         function renderMessages() {
             const container = document.getElementById('chat-messages');
             container.innerHTML = messages.map(m => {
-                const isMe = m.senderUid === auth.currentUser.uid;
-                const isSystem = m.senderRole === 'System';
+                const isMe = m.senderUid === auth.currentUser?.uid;
+                const isBot = m.senderRole === 'BOT';
                 
                 return `
                 <div class="flex ${isMe ? 'flex-row-reverse' : 'flex-row'} items-start gap-4 message-anim">
@@ -301,7 +318,7 @@
                             <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">${m.senderName}</span>
                             <span class="rank-badge rank-${m.senderRole.replace(/ /g, '-')}">${m.senderRole}</span>
                         </div>
-                        <div class="p-4 rounded-3xl ${isMe ? 'bg-indigo-600 text-white rounded-tr-none' : (isSystem ? 'bg-emerald-950/40 text-emerald-100 border border-emerald-500/30' : 'bg-slate-900 text-slate-200 border border-slate-800 rounded-tl-none')} shadow-xl">
+                        <div class="p-4 rounded-3xl ${isMe ? 'bg-indigo-600 text-white rounded-tr-none' : (isBot ? 'bg-emerald-950/40 text-emerald-100 border border-emerald-500/30 rounded-tl-none' : 'bg-slate-900 text-slate-200 border border-slate-800 rounded-tl-none')} shadow-xl">
                             <p class="text-sm leading-relaxed">${m.text}</p>
                         </div>
                     </div>
@@ -310,22 +327,23 @@
             container.scrollTop = container.scrollHeight;
         }
 
-        // --- Window Bindings for HTML onclicks ---
+        // Interactions
         window.sendMessage = async () => {
             const input = document.getElementById('message-input');
             const text = input.value.trim();
-            if (!text || !currentUserData) return;
+            if (!text || !currentUserData || !auth.currentUser) return;
 
-            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'messages'), {
+            const message = {
                 senderUid: auth.currentUser.uid,
                 senderName: currentUserData.username,
                 senderRole: currentUserData.role,
                 senderPfp: currentUserData.pfp,
                 text: text,
                 timestamp: serverTimestamp()
-            });
+            };
 
             input.value = "";
+            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'messages'), message);
         };
 
         window.openProfile = (uid) => {
@@ -350,8 +368,9 @@
                 <span class="rank-badge rank-${user.role.replace(/ /g, '-')} scale-125 inline-block">${user.role}</span>
             `;
 
-            // Hide like button if it's yourself
-            document.getElementById('like-btn').style.display = user.uid === auth.currentUser.uid ? 'none' : 'block';
+            // Display "Like" button logic
+            const likeBtn = document.getElementById('like-btn');
+            likeBtn.style.display = (user.uid === auth.currentUser?.uid || user.uid === 'system_bot') ? 'none' : 'block';
             
             modal.classList.remove('hidden');
         };
@@ -359,27 +378,20 @@
         window.likeUser = async () => {
             const modal = document.getElementById('profile-modal');
             const targetUid = modal.getAttribute('data-target-uid');
-            if (!targetUid) return;
+            if (!targetUid || !auth.currentUser) return;
 
             const targetRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', targetUid);
             await updateDoc(targetRef, { likes: increment(1) });
             
+            // Visual feedback
             const btn = document.getElementById('like-btn');
             btn.classList.add('like-btn-active');
             setTimeout(() => btn.classList.remove('like-btn-active'), 300);
             
-            // Local update for instant feel
+            // Update local count immediately for responsiveness
             const countEl = document.getElementById('view-likes');
             countEl.innerText = parseInt(countEl.innerText) + 1;
         };
-
-        function formatTime(ts) {
-            const diff = Math.floor((Date.now() - ts) / 1000);
-            if (diff < 60) return 'Just now';
-            if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
-            if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
-            return 'Days ago';
-        }
 
         window.closeProfile = () => {
             document.getElementById('profile-modal').classList.add('hidden');
@@ -394,18 +406,26 @@
             auth.signOut().then(() => location.reload());
         };
 
-        // Initialize Auth
-        initAuth();
+        function formatTime(ts) {
+            if (!ts) return 'Unknown';
+            const diff = Math.floor((Date.now() - ts) / 1000);
+            if (diff < 60) return 'Just now';
+            if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+            if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+            return 'Offline';
+        }
 
-        // Keyboard support
+        // Input Bindings
         document.getElementById('message-input').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') window.sendMessage();
         });
 
-        // Close dropdown on click outside
-        window.onclick = () => {
+        window.addEventListener('click', () => {
             document.getElementById('header-dropdown').classList.add('hidden');
-        };
+        });
+
+        // Bootstrap
+        initAuth();
     </script>
 </body>
 </html>
