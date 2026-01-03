@@ -9,7 +9,7 @@ const app = express();
 const server = http.createServer(app);
 
 // --- CONFIGURATION ---
-// Using your provided Atlas URI
+// Using your provided Atlas URI exactly as requested
 const MONGODB_URI = "mongodb+srv://hayden:123password123@cluster0.57lnswh.mongodb.net/vikvok_live?retryWrites=true&w=majority";
 const PORT = process.env.PORT || 3000;
 
@@ -120,7 +120,7 @@ app.post('/api/messages', async (req, res) => {
         await userMessage.save();
         res.status(201).json(userMessage);
 
-        // Simple Greeting Logic (Replaces the AI Bot)
+        // Simple Greeting Logic
         if (text.toLowerCase().includes("hello system")) {
             const systemReply = new Message({
                 username: "System",
@@ -142,7 +142,6 @@ app.get('/api/users', async (req, res) => {
         const now = Date.now();
         const allUsers = await User.find({}, 'username role pfp isOnline lastSeen bio');
         
-        // Update online status in real-time based on lastSeen (30s threshold)
         const userList = allUsers.map(u => ({
             username: u.username,
             role: u.role,
@@ -163,12 +162,10 @@ app.put('/api/users/profile', async (req, res) => {
         const user = await User.findOne({ username: currentUsername });
         if (!user) return res.status(404).json({ success: false, message: "User not found" });
 
-        // If changing username
         if (username && username !== currentUsername) {
             const exists = await User.findOne({ username });
             if (exists) return res.status(400).json({ success: false, message: "New username taken" });
             
-            // Update past messages
             await Message.updateMany({ username: currentUsername }, { username: username });
             user.username = username;
         }
@@ -178,7 +175,6 @@ app.put('/api/users/profile', async (req, res) => {
         user.pfp = profilePic || user.pfp;
         
         await user.save();
-        // Sync avatars in message history
         await Message.updateMany({ username: user.username }, { pfp: user.pfp });
 
         res.json({ success: true, user });
@@ -193,7 +189,6 @@ app.post('/api/heartbeat', async (req, res) => {
     res.json({ success: true });
 });
 
-// --- CATCH-ALL ---
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
