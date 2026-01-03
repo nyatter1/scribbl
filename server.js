@@ -8,10 +8,14 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// Database Configuration
+// --- DATABASE CONFIGURATION ---
+// We use process.env.DATABASE_URL for security. 
+// Make sure to add this variable in your Render Dashboard!
 const pool = new Pool({
-    connectionString: "postgresql://postgres:Ilovemyipad2@db.fvwmfiugbymakcystvow.supabase.co:5432/postgres",
-    ssl: { rejectUnauthorized: false } // Required for Supabase/Heroku/External DBs
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+        rejectUnauthorized: false
+    }
 });
 
 app.use(express.json());
@@ -39,9 +43,9 @@ const initDB = async () => {
                 timestamp BIGINT NOT NULL
             );
         `);
-        console.log("Database initialized successfully.");
+        console.log("✅ Database initialized successfully.");
     } catch (err) {
-        console.error("Database initialization error:", err);
+        console.error("❌ Database initialization error:", err);
     }
 };
 initDB();
@@ -68,7 +72,6 @@ app.post('/api/login', async (req, res) => {
 app.post('/api/register', async (req, res) => {
     const { username, password } = req.body;
     try {
-        // First user is automatically Developer, others are Member
         const countRes = await pool.query('SELECT COUNT(*) FROM users');
         const role = parseInt(countRes.rows[0].count) === 0 ? 'Developer' : 'Member';
         
@@ -138,7 +141,6 @@ io.on('connection', (socket) => {
         const userData = { ...user, socketId: socket.id };
         activeUsers.set(socket.id, userData);
 
-        // Fetch last 50 messages
         const msgResult = await pool.query('SELECT * FROM messages ORDER BY timestamp ASC LIMIT 50');
         
         socket.emit('init_data', {
@@ -187,4 +189,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server routing traffic on port ${PORT}`));
+server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
