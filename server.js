@@ -3,19 +3,32 @@ const http = require('http');
 const { Server } = require('socket.io');
 const { Pool } = require('pg');
 const path = require('path');
+require('dotenv').config(); // Loads .env file if running locally
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
 // --- DATABASE CONFIGURATION ---
-// We use process.env.DATABASE_URL for security. 
-// Make sure to add this variable in your Render Dashboard!
+// This checks if the Render environment variable exists
+if (!process.env.DATABASE_URL) {
+    console.error("❌ ERROR: DATABASE_URL is not defined in Environment Variables!");
+}
+
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: {
-        rejectUnauthorized: false
+        rejectUnauthorized: false // REQUIRED for Supabase connections
     }
+});
+
+// Test the connection immediately
+pool.connect((err, client, release) => {
+    if (err) {
+        return console.error('❌ Error acquiring client:', err.stack);
+    }
+    console.log('✅ Successfully connected to Supabase PostgreSQL!');
+    release();
 });
 
 app.use(express.json());
@@ -43,7 +56,7 @@ const initDB = async () => {
                 timestamp BIGINT NOT NULL
             );
         `);
-        console.log("✅ Database initialized successfully.");
+        console.log("✅ Database tables verified/created.");
     } catch (err) {
         console.error("❌ Database initialization error:", err);
     }
@@ -141,12 +154,15 @@ io.on('connection', (socket) => {
         const userData = { ...user, socketId: socket.id };
         activeUsers.set(socket.id, userData);
 
-        const msgResult = await pool.query('SELECT * FROM messages ORDER BY timestamp ASC LIMIT 50');
-        
-        socket.emit('init_data', {
-            history: msgResult.rows,
-            users: Array.from(activeUsers.values())
-        });
+        try {
+            const msgResult = await pool.query('SELECT * FROM messages ORDER BY timestamp ASC LIMIT 50');
+            socket.emit('init_data', {
+                history: msgResult.rows,
+                users: Array.from(activeUsers.values())
+            });
+        } catch (e) {
+            console.error("Error fetching history:", e);
+        }
 
         socket.broadcast.emit('user_joined', userData);
     });
@@ -189,4 +205,6 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+server.listen(PORT, () => {
+    console.log(`🚀 VikVok Server live on port ${PORT}`);
+});
