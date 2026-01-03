@@ -8,13 +8,14 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=JetBrains+Mono:wght@400;700&display=swap');
         
-        body { font-family: 'Inter', sans-serif; overflow: hidden; background-color: #020617; }
+        body { font-family: 'Inter', sans-serif; overflow: hidden; }
         
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
 
         .message-anim { animation: slideIn 0.3s ease-out forwards; }
+
         @keyframes slideIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
@@ -27,22 +28,25 @@
 
         .dropdown-glow { box-shadow: 0 0 30px rgba(0, 0, 0, 0.6); }
 
-        /* Ranks Styling */
-        .rank-badge {
+        .bot-rank {
+            background: linear-gradient(to right, #10b981, #059669);
+            color: white;
             padding: 2px 6px;
             border-radius: 4px;
             font-size: 8px;
             font-weight: 900;
             text-transform: uppercase;
         }
-        .rank-Developer { background: linear-gradient(to right, #ef4444, #b91c1c); color: white; }
-        .rank-Owner { background: linear-gradient(to right, #f59e0b, #d97706); color: white; }
-        .rank-System, .rank-BOT { background: linear-gradient(to right, #10b981, #059669); color: white; }
-        .rank-Member { background: #334155; color: #cbd5e1; }
-        .rank-Admin { background: #8b5cf6; color: white; }
 
-        .like-btn-active { animation: pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        @keyframes pop { 0% { transform: scale(1); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
+        .admin-rank {
+            background: linear-gradient(to right, #ef4444, #b91c1c);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 8px;
+            font-weight: 900;
+            text-transform: uppercase;
+        }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-200 h-screen flex flex-col">
@@ -55,7 +59,7 @@
                 <div class="h-4 w-px bg-slate-800"></div>
                 <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Live Lobby</p>
             </div>
-
+                    
             <div class="flex items-center gap-4 relative">
                 <div id="self-profile-trigger" onclick="toggleDropdown(event)" class="flex items-center gap-3 cursor-pointer p-1 pr-3 hover:bg-slate-800 rounded-full transition border border-transparent hover:border-slate-700">
                     <img id="header-pfp" src="" class="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 object-cover">
@@ -65,26 +69,26 @@
                     </div>
                 </div>
 
-                <!-- Profile Dropdown -->
+                <!-- Restore Profile Dropdown with Conditional Admin Pane -->
                 <div id="header-dropdown" class="hidden absolute right-0 top-full mt-2 w-56 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl dropdown-glow py-2 z-50">
                     <div class="px-4 py-2 border-b border-slate-800 mb-1">
                         <p class="text-[10px] font-black text-slate-500 uppercase">Account</p>
                     </div>
                     
-                    <a href="profile.html" class="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/5 text-xs font-bold text-slate-300 transition text-left">
+                    <button onclick="openProfile(currentUser.username)" class="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/5 text-xs font-bold text-slate-300 transition text-left">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                         </svg>
                         My Profile
-                    </a>
+                    </button>
 
-                    <!-- Admin Panel - Only for Developer/Owner rank -->
-                    <a id="admin-panel-btn" href="admin.html" class="hidden w-full flex items-center gap-3 px-4 py-3 hover:bg-red-500/10 text-xs font-bold text-red-400 transition text-left">
+                    <!-- Hidden Admin Pane - Only for Developer rank -->
+                    <button id="admin-pane-btn" class="hidden w-full flex items-center gap-3 px-4 py-3 hover:bg-red-500/10 text-xs font-bold text-red-400 transition text-left">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
                         </svg>
-                        Admin Panel
-                    </a>
+                        Admin Pane
+                    </button>
 
                     <button onclick="logout()" class="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-500/10 text-xs font-bold text-red-400 transition text-left border-t border-slate-800 mt-1">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -102,7 +106,7 @@
                 <div id="user-list-container" class="flex-grow overflow-y-auto p-3 space-y-6 custom-scrollbar">
                     <div>
                         <div class="px-2 mb-3 flex justify-between items-center">
-                            <span class="text-[10px] font-black uppercase text-indigo-400 tracking-widest">Active Now</span>
+                            <span class="text-[10px] font-black uppercase text-indigo-400 tracking-widest">Online Entities</span>
                             <span id="online-count" class="text-[10px] bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full font-bold">0</span>
                         </div>
                         <div id="online-users" class="space-y-1"></div>
@@ -134,278 +138,195 @@
     <!-- Profile Modal -->
     <div id="profile-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
         <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" onclick="closeProfile()"></div>
-        <div class="relative w-full max-w-sm bg-slate-900 rounded-[2.5rem] overflow-hidden border border-slate-800 shadow-2xl message-anim">
-            <div id="view-banner" class="profile-banner relative">
+        <div class="relative w-full max-w-md bg-slate-900 rounded-[2.5rem] overflow-hidden border border-slate-800 shadow-2xl message-anim">
+            <div class="profile-banner relative">
                 <button onclick="closeProfile()" class="absolute top-4 right-4 p-2 bg-black/20 hover:bg-black/40 rounded-full text-white backdrop-blur-md">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
                     </svg>
                 </button>
             </div>
-            <div class="px-8 pb-8 flex flex-col items-center">
+            <div class="px-8 pb-8">
                 <div class="relative -mt-12 mb-4">
-                    <img id="view-pfp" src="" class="w-24 h-24 rounded-[2rem] border-4 border-slate-900 bg-slate-800 object-cover shadow-xl">
-                    <div id="view-status-dot" class="absolute bottom-1 right-1 w-5 h-5 rounded-full border-4 border-slate-900"></div>
+                    <img id="view-pfp" src="" class="w-24 h-24 rounded-[2rem] border-4 border-slate-900 bg-slate-800 object-cover">
                 </div>
                 <h2 id="view-username" class="text-2xl font-black text-white italic tracking-tighter uppercase mb-1">@username</h2>
                 <div class="mb-4" id="view-rank-container"></div>
-                
-                <div class="w-full grid grid-cols-2 gap-3 mb-6">
-                    <div class="bg-slate-950/50 rounded-2xl p-4 border border-slate-800/50 text-center">
-                        <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Appreciation</p>
-                        <p id="view-likes" class="text-xl font-black text-white">0</p>
-                    </div>
-                    <div class="bg-slate-950/50 rounded-2xl p-4 border border-slate-800/50 text-center">
-                        <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Seen</p>
-                        <p id="view-lastseen" class="text-[10px] font-bold text-slate-400">Loading...</p>
-                    </div>
-                </div>
-
-                <div class="w-full flex gap-3">
-                    <button id="like-btn" onclick="likeUser()" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-lg shadow-indigo-600/20 active:scale-95 transition-all">
-                        Like
-                    </button>
+                <div class="bg-slate-950/50 rounded-2xl p-4 border border-slate-800/50">
+                    <p id="view-bio" class="text-sm text-slate-400 leading-relaxed italic">No bio recorded.</p>
                 </div>
             </div>
         </div>
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, getDoc, onSnapshot, query, updateDoc, increment, orderBy, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // --- Firebase Config ---
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'live-lobby-v6';
-
-        // --- App State ---
-        let currentUserData = null;
-        let allUsers = [];
-        let messages = [];
-
-        // --- Auth Initialization ---
-        const initAuth = async () => {
-            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                await signInWithCustomToken(auth, __initial_auth_token);
-            } else {
-                await signInAnonymously(auth);
-            }
+    <script>
+        // System Entities
+        const BOT_ENTITY = {
+            username: "BOT",
+            role: "BOT",
+            pfp: "https://api.dicebear.com/7.x/bottts/svg?seed=ChatBot&backgroundColor=10b981",
+            bio: "Automated Lobby Guardian. Monitoring system health and chat vibes.",
+            isOnline: true
         };
 
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                const userRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', user.uid);
-                const snap = await getDoc(userRef);
-                
-                if (!snap.exists()) {
-                    await setDoc(userRef, {
-                        uid: user.uid,
-                        username: "User_" + user.uid.slice(0, 4),
-                        role: "Member",
-                        likes: 0,
-                        lastSeen: Date.now(),
-                        pfp: `https://ui-avatars.com/api/?name=U&background=random`,
-                        banner: "linear-gradient(to right, #6366f1, #a855f7)"
-                    });
-                } else {
-                    await updateDoc(userRef, { lastSeen: Date.now() });
-                }
-                setupListeners();
+        // User Setup (Default to Member unless logged in)
+        let currentUser = {
+            username: "Guest_" + Math.floor(Math.random() * 9000),
+            role: "Member",
+            pfp: "",
+            bio: "A regular citizen of ChatApp."
+        };
+
+        let messages = [];
+        let liveUsers = [BOT_ENTITY];
+
+        window.onload = () => {
+            const saved = localStorage.getItem('chat_user');
+            if (saved) {
+                currentUser = JSON.parse(saved);
             }
-        });
 
-        // --- Real-time Listeners ---
-        function setupListeners() {
-            // Sync Users
-            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'users'), (snapshot) => {
-                allUsers = snapshot.docs.map(doc => doc.data());
-                currentUserData = allUsers.find(u => u.uid === auth.currentUser.uid);
-                refreshUI();
+            if (!liveUsers.find(u => u.username === currentUser.username)) {
+                liveUsers.push({ ...currentUser, isOnline: true });
+            }
+
+            checkAdminStatus();
+            refreshUI();
+            
+            document.getElementById('message-input').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') sendMessage();
             });
 
-            // Sync Messages
-            const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'messages'), orderBy('timestamp', 'asc'));
-            onSnapshot(q, (snapshot) => {
-                messages = snapshot.docs.map(doc => doc.data());
-                renderMessages();
-            });
-            
-            // Nexus Bot Static Presence
-            const botRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', 'nexus_bot');
-            setDoc(botRef, {
-                uid: 'nexus_bot',
-                username: 'Nexus_Bot',
-                role: 'System',
-                likes: 999,
-                lastSeen: Date.now(),
-                pfp: 'https://api.dicebear.com/7.x/bottts/svg?seed=Nexus',
-                banner: 'linear-gradient(to right, #10b981, #059669)'
-            }, { merge: true });
-        }
+            // Greet User
+            setTimeout(() => {
+                botResponse(`Systems nominal. Welcome back, @${currentUser.username}.`);
+            }, 1000);
+        };
 
-        // --- Core UI Functions ---
-        function refreshUI() {
-            if (!currentUserData) return;
-            
-            // Header
-            document.getElementById('header-username').innerText = `@${currentUserData.username}`;
-            document.getElementById('header-rank').innerText = currentUserData.role;
-            document.getElementById('header-pfp').src = currentUserData.pfp;
-
-            // Admin Panel Check
-            const adminBtn = document.getElementById('admin-panel-btn');
-            if (currentUserData.role === "Developer" || currentUserData.role === "Owner") {
+        function checkAdminStatus() {
+            const adminBtn = document.getElementById('admin-pane-btn');
+            if (currentUser.role === "Developer") {
                 adminBtn.classList.remove('hidden');
             } else {
                 adminBtn.classList.add('hidden');
             }
+        }
+
+        function refreshUI() {
+            document.getElementById('header-username').innerText = `@${currentUser.username}`;
+            document.getElementById('header-rank').innerText = currentUser.role;
+            document.getElementById('header-pfp').src = currentUser.pfp || `https://ui-avatars.com/api/?name=${currentUser.username}&background=random`;
 
             renderUserList();
+            renderMessages();
+        }
+
+        function toggleDropdown(e) {
+            e.stopPropagation();
+            document.getElementById('header-dropdown').classList.toggle('hidden');
+        }
+
+        window.onclick = () => {
+            document.getElementById('header-dropdown').classList.add('hidden');
+        }
+
+        function logout() {
+            localStorage.removeItem('chat_user');
+            location.reload();
+        }
+
+        function botResponse(text) {
+            messages.push({
+                username: BOT_ENTITY.username,
+                text: text,
+                timestamp: Date.now(),
+                pfp: BOT_ENTITY.pfp,
+                role: BOT_ENTITY.role
+            });
+            renderMessages();
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('message-input');
+            const text = input.value.trim();
+            if (!text) return;
+
+            messages.push({
+                username: currentUser.username,
+                text: text,
+                timestamp: Date.now(),
+                pfp: currentUser.pfp,
+                role: currentUser.role
+            });
+
+            input.value = "";
+            renderMessages();
+
+            // Simple Bot Reactivity
+            const lower = text.toLowerCase();
+            if (lower.includes("bot")) {
+                setTimeout(() => botResponse("Listening. Commands are currently restricted."), 800);
+            }
+        }
+
+        function renderMessages() {
+            const container = document.getElementById('chat-messages');
+            container.innerHTML = messages.map(m => `
+                <div class="flex ${m.username === currentUser.username ? 'flex-row-reverse' : 'flex-row'} items-start gap-4 message-anim">
+                    <img onclick="openProfile('${m.username}')" src="${m.pfp || `https://ui-avatars.com/api/?name=${m.username}&background=random`}" class="w-10 h-10 rounded-2xl cursor-pointer hover:scale-105 transition shadow-lg object-cover bg-slate-800">
+                    <div class="max-w-[70%] ${m.username === currentUser.username ? 'items-end' : 'items-start'} flex flex-col gap-1">
+                        <div class="flex items-center gap-2 ${m.username === currentUser.username ? 'flex-row-reverse' : ''}">
+                            <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">${m.username}</span>
+                            <span class="${m.role === 'BOT' ? 'bot-rank' : (m.role === 'Developer' ? 'admin-rank' : 'text-[8px] bg-slate-800 text-indigo-400 px-2 py-0.5 rounded font-bold')}">${m.role}</span>
+                        </div>
+                        <div class="p-4 rounded-3xl ${m.username === currentUser.username ? 'bg-indigo-600 text-white rounded-tr-none shadow-indigo-500/10' : (m.username === 'BOT' ? 'bg-emerald-950/40 text-emerald-100 border border-emerald-500/30 rounded-tl-none' : 'bg-slate-900 text-slate-200 rounded-tl-none border border-slate-800')} shadow-xl">
+                            <p class="text-sm leading-relaxed">${m.text}</p>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            container.scrollTop = container.scrollHeight;
         }
 
         function renderUserList() {
             const list = document.getElementById('online-users');
-            const now = Date.now();
-            const onlineNow = allUsers.filter(u => (now - u.lastSeen) < 300000);
-            document.getElementById('online-count').innerText = onlineNow.length;
+            document.getElementById('online-count').innerText = liveUsers.length;
 
-            list.innerHTML = allUsers.sort((a,b) => b.lastSeen - a.lastSeen).map(u => `
-                <div onclick="window.openProfile('${u.uid}')" class="flex items-center gap-3 p-2 hover:bg-slate-800/50 rounded-xl cursor-pointer transition group">
+            list.innerHTML = liveUsers.map(u => `
+                <div onclick="openProfile('${u.username}')" class="flex items-center gap-3 p-2 hover:bg-slate-800/50 rounded-xl cursor-pointer transition group">
                     <div class="relative">
-                        <img src="${u.pfp}" class="w-8 h-8 rounded-lg object-cover bg-slate-800">
-                        <div class="absolute -bottom-1 -right-1 w-2.5 h-2.5 ${ (now - u.lastSeen) < 300000 ? 'bg-green-500 shadow-[0_0_5px_#22c55e]' : 'bg-slate-600'} border-2 border-[#020617] rounded-full"></div>
+                        <img src="${u.pfp || `https://ui-avatars.com/api/?name=${u.username}&background=random`}" class="w-8 h-8 rounded-lg object-cover">
+                        <div class="absolute -bottom-1 -right-1 w-2.5 h-2.5 ${u.username === 'BOT' ? 'bg-emerald-500 shadow-[0_0_5px_#10b981]' : 'bg-green-500'} border-2 border-slate-900 rounded-full"></div>
                     </div>
                     <div class="overflow-hidden">
                         <p class="text-xs font-bold text-slate-300 truncate group-hover:text-white">${u.username}</p>
-                        <span class="rank-badge rank-${u.role.replace(/ /g, '-')}">${u.role}</span>
+                        <p class="text-[9px] ${u.role === 'BOT' ? 'text-emerald-400' : (u.role === 'Developer' ? 'text-red-400' : 'text-indigo-400')} font-black uppercase tracking-widest">${u.role}</p>
                     </div>
                 </div>
             `).join('');
         }
 
-        function renderMessages() {
-            const container = document.getElementById('chat-messages');
-            container.innerHTML = messages.map(m => {
-                const isMe = m.senderUid === auth.currentUser.uid;
-                const isSystem = m.senderRole === 'System';
-                
-                return `
-                <div class="flex ${isMe ? 'flex-row-reverse' : 'flex-row'} items-start gap-4 message-anim">
-                    <img onclick="window.openProfile('${m.senderUid}')" src="${m.senderPfp}" class="w-10 h-10 rounded-2xl cursor-pointer hover:scale-105 transition shadow-lg object-cover bg-slate-800 border border-slate-800">
-                    <div class="max-w-[70%] ${isMe ? 'items-end' : 'items-start'} flex flex-col gap-1">
-                        <div class="flex items-center gap-2 ${isMe ? 'flex-row-reverse' : ''}">
-                            <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">${m.senderName}</span>
-                            <span class="rank-badge rank-${m.senderRole.replace(/ /g, '-')}">${m.senderRole}</span>
-                        </div>
-                        <div class="p-4 rounded-3xl ${isMe ? 'bg-indigo-600 text-white rounded-tr-none' : (isSystem ? 'bg-emerald-950/40 text-emerald-100 border border-emerald-500/30' : 'bg-slate-900 text-slate-200 border border-slate-800 rounded-tl-none')} shadow-xl">
-                            <p class="text-sm leading-relaxed">${m.text}</p>
-                        </div>
-                    </div>
-                </div>
-            `}).join('');
-            container.scrollTop = container.scrollHeight;
-        }
-
-        // --- Window Bindings for HTML onclicks ---
-        window.sendMessage = async () => {
-            const input = document.getElementById('message-input');
-            const text = input.value.trim();
-            if (!text || !currentUserData) return;
-
-            await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'messages'), {
-                senderUid: auth.currentUser.uid,
-                senderName: currentUserData.username,
-                senderRole: currentUserData.role,
-                senderPfp: currentUserData.pfp,
-                text: text,
-                timestamp: serverTimestamp()
-            });
-
-            input.value = "";
-        };
-
-        window.openProfile = (uid) => {
-            const user = allUsers.find(u => u.uid === uid);
+        function openProfile(username) {
+            let user = liveUsers.find(u => u.username === username);
             if (!user) return;
 
-            const modal = document.getElementById('profile-modal');
-            modal.setAttribute('data-target-uid', uid);
-
-            document.getElementById('view-pfp').src = user.pfp;
+            document.getElementById('view-pfp').src = user.pfp || `https://ui-avatars.com/api/?name=${user.username}&background=random`;
             document.getElementById('view-username').innerText = `@${user.username}`;
-            document.getElementById('view-likes').innerText = user.likes || 0;
-            document.getElementById('view-banner').style.background = user.banner;
-
-            const now = Date.now();
-            const isOnline = (now - user.lastSeen) < 300000;
-            document.getElementById('view-status-dot').className = `absolute bottom-1 right-1 w-5 h-5 rounded-full border-4 border-slate-900 ${isOnline ? 'bg-green-500' : 'bg-slate-600'}`;
             
-            document.getElementById('view-lastseen').innerText = isOnline ? 'Online Now' : formatTime(user.lastSeen);
+            // Set Rank styling in modal
+            let rankHtml = `<span class="text-[10px] font-bold uppercase tracking-[0.2em] `;
+            if(user.role === 'BOT') rankHtml += `text-emerald-400">BOT Rank</span>`;
+            else if(user.role === 'Developer') rankHtml += `text-red-400">Developer Rank</span>`;
+            else rankHtml += `text-indigo-400">Member Rank</span>`;
             
-            document.getElementById('view-rank-container').innerHTML = `
-                <span class="rank-badge rank-${user.role.replace(/ /g, '-')} scale-125 inline-block">${user.role}</span>
-            `;
-
-            // Hide like button if it's yourself
-            document.getElementById('like-btn').style.display = user.uid === auth.currentUser.uid ? 'none' : 'block';
-            
-            modal.classList.remove('hidden');
-        };
-
-        window.likeUser = async () => {
-            const modal = document.getElementById('profile-modal');
-            const targetUid = modal.getAttribute('data-target-uid');
-            if (!targetUid) return;
-
-            const targetRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', targetUid);
-            await updateDoc(targetRef, { likes: increment(1) });
-            
-            const btn = document.getElementById('like-btn');
-            btn.classList.add('like-btn-active');
-            setTimeout(() => btn.classList.remove('like-btn-active'), 300);
-            
-            // Local update for instant feel
-            const countEl = document.getElementById('view-likes');
-            countEl.innerText = parseInt(countEl.innerText) + 1;
-        };
-
-        function formatTime(ts) {
-            const diff = Math.floor((Date.now() - ts) / 1000);
-            if (diff < 60) return 'Just now';
-            if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
-            if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
-            return 'Days ago';
+            document.getElementById('view-rank-container').innerHTML = rankHtml;
+            document.getElementById('view-bio').innerText = user.bio || "No bio recorded.";
+            document.getElementById('profile-modal').classList.remove('hidden');
         }
 
-        window.closeProfile = () => {
+        function closeProfile() {
             document.getElementById('profile-modal').classList.add('hidden');
-        };
-
-        window.toggleDropdown = (e) => {
-            e.stopPropagation();
-            document.getElementById('header-dropdown').classList.toggle('hidden');
-        };
-
-        window.logout = () => {
-            auth.signOut().then(() => location.reload());
-        };
-
-        // Initialize Auth
-        initAuth();
-
-        // Keyboard support
-        document.getElementById('message-input').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') window.sendMessage();
-        });
-
-        // Close dropdown on click outside
-        window.onclick = () => {
-            document.getElementById('header-dropdown').classList.add('hidden');
-        };
+        }
     </script>
 </body>
 </html>
