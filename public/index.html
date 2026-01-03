@@ -14,9 +14,7 @@
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
 
-        .message-anim {
-            animation: slideIn 0.3s ease-out forwards;
-        }
+        .message-anim { animation: slideIn 0.3s ease-out forwards; }
 
         @keyframes slideIn {
             from { opacity: 0; transform: translateY(10px); }
@@ -28,127 +26,113 @@
             height: 120px;
         }
 
-        .dropdown-glow { box-shadow: 0 0 20px rgba(0, 0, 0, 0.5); }
+        .dropdown-glow { box-shadow: 0 0 30px rgba(0, 0, 0, 0.6); }
 
-        #terminal-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            z-index: 100;
-            background: rgba(2, 6, 23, 0.95);
-            backdrop-filter: blur(25px);
-            padding: 2rem;
-            font-family: 'JetBrains Mono', monospace;
+        .bot-rank {
+            background: linear-gradient(to right, #10b981, #059669);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 8px;
+            font-weight: 900;
+            text-transform: uppercase;
         }
-        .terminal-input {
-            background: transparent;
-            border: none;
-            outline: none;
-            color: #10b981;
-            width: 100%;
+
+        .admin-rank {
+            background: linear-gradient(to right, #ef4444, #b91c1c);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 8px;
+            font-weight: 900;
+            text-transform: uppercase;
         }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-200 h-screen flex flex-col">
 
-    <!-- Developer Terminal Overlay -->
-    <div id="terminal-overlay">
-        <div class="max-w-4xl mx-auto h-full flex flex-col">
-            <div class="flex items-center gap-2 mb-4 border-b border-white/10 pb-2">
-                <span class="text-red-500 text-xs">●</span>
-                <span class="text-yellow-500 text-xs">●</span>
-                <span class="text-green-500 text-xs">●</span>
-                <span class="ml-4 text-[10px] text-slate-500 font-bold uppercase tracking-widest">Dev_Kernel :: Access_Level_Admin</span>
+    <div id="main-content-wrapper" class="flex-1 flex flex-col overflow-hidden transition-all duration-300">
+        <!-- Header -->
+        <header class="h-16 border-b border-slate-800 flex items-center justify-between px-6 bg-slate-900/50 relative z-30">
+            <div class="flex items-center gap-4">
+                <h1 class="text-xl font-black italic tracking-tighter text-white uppercase">ChatApp</h1>
+                <div class="h-4 w-px bg-slate-800"></div>
+                <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Live Lobby</p>
             </div>
-            <div id="terminal-output" class="flex-1 overflow-y-auto text-sm space-y-2 custom-scrollbar text-slate-400">
-                <p class="text-emerald-500">Developer Authenticated. System Ready.</p>
-                <p>Type <span class="text-white">/help</span> for commands.</p>
-            </div>
-            <div class="flex items-center gap-2 mt-4 text-emerald-500 border-t border-white/10 pt-4">
-                <span>dev@chatapp:~#</span>
-                <input type="text" id="terminal-command-input" class="terminal-input" autofocus autocomplete="off">
-            </div>
-        </div>
-    </div>
-
-    <!-- Header -->
-    <header class="h-16 border-b border-slate-800 flex items-center justify-between px-6 bg-slate-900/50 relative z-30">
-        <div class="flex items-center gap-4">
-            <h1 class="text-xl font-black italic tracking-tighter text-white uppercase">ChatApp</h1>
-            <div class="h-4 w-px bg-slate-800"></div>
-            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Live Lobby</p>
-        </div>
-        
-        <div class="flex items-center gap-4 relative">
-            <div id="self-profile-trigger" onclick="toggleDropdown(event)" class="flex items-center gap-3 cursor-pointer p-1 pr-3 hover:bg-slate-800 rounded-full transition border border-transparent hover:border-slate-700">
-                <img id="header-pfp" src="" class="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 object-cover">
-                <div class="flex flex-col">
-                    <span id="header-username" class="text-xs font-bold text-white">@username</span>
-                    <span id="header-rank" class="text-[8px] text-indigo-400 uppercase font-black">Rank</span>
-                </div>
-            </div>
-
-            <!-- Profile Dropdown -->
-            <div id="header-dropdown" class="hidden absolute right-0 top-full mt-2 w-48 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl dropdown-glow py-2 z-50">
-                <a href="/profile.html" class="flex items-center gap-3 px-4 py-3 hover:bg-slate-800 text-xs font-bold text-slate-300 hover:text-white transition">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                    My Profile
-                </a>
-                
-                <div id="admin-panel-btn" class="hidden border-t border-slate-800 mt-1">
-                    <!-- FIXED: Navigate to admin.html -->
-                    <button onclick="window.location.href='/admin.html'" class="w-full flex items-center gap-3 px-4 py-3 hover:bg-indigo-500/10 text-xs font-bold text-indigo-400 transition text-left">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                        </svg>
-                        Admin Panel
-                    </button>
-                </div>
-
-                <button onclick="logout()" class="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-500/10 text-xs font-bold text-red-400 transition text-left border-t border-slate-800 mt-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                    </svg>
-                    Logout
-                </button>
-            </div>
-        </div>
-    </header>
-
-    <div class="flex-1 flex overflow-hidden">
-        <!-- Sidebar -->
-        <aside class="w-64 bg-slate-900/30 border-r border-slate-800 flex flex-col hidden md:flex">
-            <div id="user-list-container" class="flex-grow overflow-y-auto p-3 space-y-6 custom-scrollbar">
-                <div>
-                    <div class="px-2 mb-3 flex justify-between items-center">
-                        <span class="text-[10px] font-black uppercase text-indigo-400 tracking-widest">Active Users</span>
-                        <span id="online-count" class="text-[10px] bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full font-bold">0</span>
+                    
+            <div class="flex items-center gap-4 relative">
+                <div id="self-profile-trigger" onclick="toggleDropdown(event)" class="flex items-center gap-3 cursor-pointer p-1 pr-3 hover:bg-slate-800 rounded-full transition border border-transparent hover:border-slate-700">
+                    <img id="header-pfp" src="" class="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 object-cover">
+                    <div class="flex flex-col">
+                        <span id="header-username" class="text-xs font-bold text-white">@username</span>
+                        <span id="header-rank" class="text-[8px] text-indigo-400 uppercase font-black">Rank</span>
                     </div>
-                    <div id="online-users" class="space-y-1"></div>
                 </div>
-            </div>
-        </aside>
 
-        <!-- Main Chat Area -->
-        <main class="flex-1 flex flex-col bg-slate-950/50 relative">
-            <div id="chat-messages" class="flex-grow overflow-y-auto p-6 space-y-6 custom-scrollbar flex flex-col">
-                <!-- Live Messages -->
-            </div>
+                <!-- Restore Profile Dropdown with Conditional Admin Pane -->
+                <div id="header-dropdown" class="hidden absolute right-0 top-full mt-2 w-56 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl dropdown-glow py-2 z-50">
+                    <div class="px-4 py-2 border-b border-slate-800 mb-1">
+                        <p class="text-[10px] font-black text-slate-500 uppercase">Account</p>
+                    </div>
+                    
+                    <button onclick="openProfile(currentUser.username)" class="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/5 text-xs font-bold text-slate-300 transition text-left">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        My Profile
+                    </button>
 
-            <!-- Input Box -->
-            <div class="p-4 bg-slate-900/50 border-t border-slate-800">
-                <div class="max-w-4xl mx-auto flex gap-3">
-                    <input type="text" id="message-input" 
-                        class="flex-1 bg-slate-900 border border-slate-800 rounded-2xl px-5 py-4 text-sm text-white focus:outline-none focus:border-indigo-500 transition-all"
-                        placeholder="Push message to terminal...">
-                    <button onclick="sendMessage()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-6 rounded-2xl transition font-bold text-xs uppercase tracking-widest">
-                        Send
+                    <!-- Hidden Admin Pane - Only for Developer rank -->
+                    <button id="admin-pane-btn" class="hidden w-full flex items-center gap-3 px-4 py-3 hover:bg-red-500/10 text-xs font-bold text-red-400 transition text-left">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                        </svg>
+                        Admin Pane
+                    </button>
+
+                    <button onclick="logout()" class="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-500/10 text-xs font-bold text-red-400 transition text-left border-t border-slate-800 mt-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                        Logout
                     </button>
                 </div>
             </div>
-        </main>
+        </header>
+
+        <div class="flex-1 flex overflow-hidden">
+            <!-- Sidebar -->
+            <aside class="w-64 bg-slate-900/30 border-r border-slate-800 flex flex-col hidden md:flex">
+                <div id="user-list-container" class="flex-grow overflow-y-auto p-3 space-y-6 custom-scrollbar">
+                    <div>
+                        <div class="px-2 mb-3 flex justify-between items-center">
+                            <span class="text-[10px] font-black uppercase text-indigo-400 tracking-widest">Online Entities</span>
+                            <span id="online-count" class="text-[10px] bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full font-bold">0</span>
+                        </div>
+                        <div id="online-users" class="space-y-1"></div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Main Chat Area -->
+            <main class="flex-1 flex flex-col bg-slate-950/50 relative">
+                <div id="chat-messages" class="flex-grow overflow-y-auto p-6 space-y-6 custom-scrollbar flex flex-col">
+                    <!-- Live Messages -->
+                </div>
+
+                <!-- Input Box -->
+                <div class="p-4 bg-slate-900/50 border-t border-slate-800">
+                    <div class="max-w-4xl mx-auto flex gap-3">
+                        <input type="text" id="message-input" 
+                            class="flex-1 bg-slate-900 border border-slate-800 rounded-2xl px-5 py-4 text-sm text-white focus:outline-none focus:border-indigo-500 transition-all"
+                            placeholder="Send a message...">
+                        <button onclick="sendMessage()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-6 rounded-2xl transition font-bold text-xs uppercase tracking-widest">
+                            Send
+                        </button>
+                    </div>
+                </div>
+            </main>
+        </div>
     </div>
 
     <!-- Profile Modal -->
@@ -167,7 +151,7 @@
                     <img id="view-pfp" src="" class="w-24 h-24 rounded-[2rem] border-4 border-slate-900 bg-slate-800 object-cover">
                 </div>
                 <h2 id="view-username" class="text-2xl font-black text-white italic tracking-tighter uppercase mb-1">@username</h2>
-                <p id="view-role" class="text-[10px] text-indigo-400 font-bold uppercase tracking-[0.2em] mb-4">Role</p>
+                <div class="mb-4" id="view-rank-container"></div>
                 <div class="bg-slate-950/50 rounded-2xl p-4 border border-slate-800/50">
                     <p id="view-bio" class="text-sm text-slate-400 leading-relaxed italic">No bio recorded.</p>
                 </div>
@@ -176,58 +160,62 @@
     </div>
 
     <script>
-        // --- DATA ---
-        const ALL_RANKS = [
-            "Member", "Active Member", "Veteran", "Trustee", "Elite", "Legend", "Mythic", "Immortal",
-            "VIP", "VIP+", "SuperVIP", "MVP", "MVP+", "Ultra", "Sovereign", "Celestial", "Aether",
-            "Supporter", "Donor", "Sponsor", "Patron", "Benefactor", "Contributor", "Partner", "Affiliate",
-            "Novice", "Expert", "Master", "Grandmaster", "Prestige I", "Prestige II", "Prestige III", "Prestige IV", "Prestige V",
-            "Beta Tester", "OG", "Early Bird", "Explorer", "Seeker", "Wanderer",
-            "Site-Helper", "Trial Mod", "Mod", "Senior Mod", "Admin", "Super Admin", 
-            "System Admin", "Network Admin", "Lead Admin", "Manager", "Community Manager",
-            "Staff Manager", "Developer", "Head Developer", "Lead Developer", "Owner", "Creator"
-        ];
+        // System Entities
+        const BOT_ENTITY = {
+            username: "BOT",
+            role: "BOT",
+            pfp: "https://api.dicebear.com/7.x/bottts/svg?seed=ChatBot&backgroundColor=10b981",
+            bio: "Automated Lobby Guardian. Monitoring system health and chat vibes.",
+            isOnline: true
+        };
 
-        const ADMIN_ROLES = ["Admin", "Super Admin", "Owner", "Developer", "Manager"];
-        
+        // User Setup (Default to Member unless logged in)
         let currentUser = {
-            username: "DevRoot",
-            role: "Developer",
+            username: "Guest_" + Math.floor(Math.random() * 9000),
+            role: "Member",
             pfp: "",
-            bio: "Core Developer of ChatApp."
+            bio: "A regular citizen of ChatApp."
         };
 
         let messages = [];
-        let liveUsers = [];
+        let liveUsers = [BOT_ENTITY];
 
         window.onload = () => {
             const saved = localStorage.getItem('chat_user');
-            if (saved) currentUser = JSON.parse(saved);
+            if (saved) {
+                currentUser = JSON.parse(saved);
+            }
 
             if (!liveUsers.find(u => u.username === currentUser.username)) {
                 liveUsers.push({ ...currentUser, isOnline: true });
             }
 
+            checkAdminStatus();
             refreshUI();
             
             document.getElementById('message-input').addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') sendMessage();
             });
 
-            document.getElementById('terminal-command-input').addEventListener('keypress', handleTerminalCommand);
+            // Greet User
+            setTimeout(() => {
+                botResponse(`Systems nominal. Welcome back, @${currentUser.username}.`);
+            }, 1000);
         };
+
+        function checkAdminStatus() {
+            const adminBtn = document.getElementById('admin-pane-btn');
+            if (currentUser.role === "Developer") {
+                adminBtn.classList.remove('hidden');
+            } else {
+                adminBtn.classList.add('hidden');
+            }
+        }
 
         function refreshUI() {
             document.getElementById('header-username').innerText = `@${currentUser.username}`;
             document.getElementById('header-rank').innerText = currentUser.role;
             document.getElementById('header-pfp').src = currentUser.pfp || `https://ui-avatars.com/api/?name=${currentUser.username}&background=random`;
-
-            const adminBtn = document.getElementById('admin-panel-btn');
-            if (ADMIN_ROLES.includes(currentUser.role)) {
-                adminBtn.classList.remove('hidden');
-            } else {
-                adminBtn.classList.add('hidden');
-            }
 
             renderUserList();
             renderMessages();
@@ -238,7 +226,6 @@
             document.getElementById('header-dropdown').classList.toggle('hidden');
         }
 
-        // Close dropdown when clicking outside
         window.onclick = () => {
             document.getElementById('header-dropdown').classList.add('hidden');
         }
@@ -248,13 +235,25 @@
             location.reload();
         }
 
+        function botResponse(text) {
+            messages.push({
+                username: BOT_ENTITY.username,
+                text: text,
+                timestamp: Date.now(),
+                pfp: BOT_ENTITY.pfp,
+                role: BOT_ENTITY.role
+            });
+            renderMessages();
+        }
+
         function sendMessage() {
             const input = document.getElementById('message-input');
-            if (!input.value.trim()) return;
+            const text = input.value.trim();
+            if (!text) return;
 
             messages.push({
                 username: currentUser.username,
-                text: input.value,
+                text: text,
                 timestamp: Date.now(),
                 pfp: currentUser.pfp,
                 role: currentUser.role
@@ -262,6 +261,12 @@
 
             input.value = "";
             renderMessages();
+
+            // Simple Bot Reactivity
+            const lower = text.toLowerCase();
+            if (lower.includes("bot")) {
+                setTimeout(() => botResponse("Listening. Commands are currently restricted."), 800);
+            }
         }
 
         function renderMessages() {
@@ -272,9 +277,9 @@
                     <div class="max-w-[70%] ${m.username === currentUser.username ? 'items-end' : 'items-start'} flex flex-col gap-1">
                         <div class="flex items-center gap-2 ${m.username === currentUser.username ? 'flex-row-reverse' : ''}">
                             <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">${m.username}</span>
-                            <span class="text-[8px] bg-slate-800 text-indigo-400 px-2 py-0.5 rounded font-bold">${m.role}</span>
+                            <span class="${m.role === 'BOT' ? 'bot-rank' : (m.role === 'Developer' ? 'admin-rank' : 'text-[8px] bg-slate-800 text-indigo-400 px-2 py-0.5 rounded font-bold')}">${m.role}</span>
                         </div>
-                        <div class="p-4 rounded-3xl ${m.username === currentUser.username ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-slate-900 text-slate-200 rounded-tl-none border border-slate-800'} shadow-xl">
+                        <div class="p-4 rounded-3xl ${m.username === currentUser.username ? 'bg-indigo-600 text-white rounded-tr-none shadow-indigo-500/10' : (m.username === 'BOT' ? 'bg-emerald-950/40 text-emerald-100 border border-emerald-500/30 rounded-tl-none' : 'bg-slate-900 text-slate-200 rounded-tl-none border border-slate-800')} shadow-xl">
                             <p class="text-sm leading-relaxed">${m.text}</p>
                         </div>
                     </div>
@@ -291,11 +296,11 @@
                 <div onclick="openProfile('${u.username}')" class="flex items-center gap-3 p-2 hover:bg-slate-800/50 rounded-xl cursor-pointer transition group">
                     <div class="relative">
                         <img src="${u.pfp || `https://ui-avatars.com/api/?name=${u.username}&background=random`}" class="w-8 h-8 rounded-lg object-cover">
-                        <div class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-green-500 border-2 border-slate-900 rounded-full"></div>
+                        <div class="absolute -bottom-1 -right-1 w-2.5 h-2.5 ${u.username === 'BOT' ? 'bg-emerald-500 shadow-[0_0_5px_#10b981]' : 'bg-green-500'} border-2 border-slate-900 rounded-full"></div>
                     </div>
                     <div class="overflow-hidden">
                         <p class="text-xs font-bold text-slate-300 truncate group-hover:text-white">${u.username}</p>
-                        <p class="text-[9px] text-indigo-400 font-black uppercase tracking-widest">${u.role}</p>
+                        <p class="text-[9px] ${u.role === 'BOT' ? 'text-emerald-400' : (u.role === 'Developer' ? 'text-red-400' : 'text-indigo-400')} font-black uppercase tracking-widest">${u.role}</p>
                     </div>
                 </div>
             `).join('');
@@ -307,112 +312,20 @@
 
             document.getElementById('view-pfp').src = user.pfp || `https://ui-avatars.com/api/?name=${user.username}&background=random`;
             document.getElementById('view-username').innerText = `@${user.username}`;
-            document.getElementById('view-role').innerText = user.role;
+            
+            // Set Rank styling in modal
+            let rankHtml = `<span class="text-[10px] font-bold uppercase tracking-[0.2em] `;
+            if(user.role === 'BOT') rankHtml += `text-emerald-400">BOT Rank</span>`;
+            else if(user.role === 'Developer') rankHtml += `text-red-400">Developer Rank</span>`;
+            else rankHtml += `text-indigo-400">Member Rank</span>`;
+            
+            document.getElementById('view-rank-container').innerHTML = rankHtml;
             document.getElementById('view-bio').innerText = user.bio || "No bio recorded.";
             document.getElementById('profile-modal').classList.remove('hidden');
         }
 
         function closeProfile() {
             document.getElementById('profile-modal').classList.add('hidden');
-        }
-
-        // --- TERMINAL SECURITY & LOGIC (FIXED) ---
-        let isTerminalOpen = false;
-
-        window.addEventListener('keydown', (e) => {
-            // FIXED: Listener for CTRL+ALT+DELETE
-            if (e.ctrlKey && e.altKey && e.key === "Delete") {
-                e.preventDefault();
-                if (currentUser.role === "Developer") {
-                    toggleTerminal();
-                } else {
-                    console.warn("Unauthorized terminal access blocked.");
-                }
-            }
-            if (e.key === "Escape" && isTerminalOpen) toggleTerminal();
-        });
-
-        function toggleTerminal() {
-            const terminal = document.getElementById('terminal-overlay');
-            isTerminalOpen = !isTerminalOpen;
-            terminal.style.display = isTerminalOpen ? 'block' : 'none';
-            if (isTerminalOpen) {
-                // Short delay to ensure focus works after display: block
-                setTimeout(() => document.getElementById('terminal-command-input').focus(), 50);
-            }
-        }
-
-        function terminalPrint(text, color = "text-slate-400") {
-            const output = document.getElementById('terminal-output');
-            const p = document.createElement('p');
-            p.className = color;
-            p.innerText = text;
-            output.appendChild(p);
-            output.scrollTop = output.scrollHeight;
-        }
-
-        function handleTerminalCommand(e) {
-            if (e.key !== 'Enter') return;
-            const input = e.target;
-            const cmdText = input.value.trim();
-            input.value = "";
-
-            if (!cmdText) return;
-
-            terminalPrint(`dev@chatapp:~# ${cmdText}`, "text-white");
-
-            const parts = cmdText.split(" ");
-            const command = parts[0].toLowerCase();
-            const args = parts.slice(1);
-
-            switch(command) {
-                case '/help':
-                    terminalPrint("Developer Commands:");
-                    terminalPrint("/clear - Permanently delete chat history.");
-                    terminalPrint("/rank [user] [rank] - Override user authority level.");
-                    terminalPrint("/listranks - Show rank index.");
-                    break;
-                case '/clear':
-                    messages = [];
-                    renderMessages();
-                    terminalPrint("Kernel logs purged. Messages cleared.", "text-emerald-500");
-                    break;
-                case '/rank':
-                    if (args.length < 2) {
-                        terminalPrint("Usage: /rank [username] [rank]", "text-red-500");
-                    } else {
-                        const targetName = args[0];
-                        const newRankName = args.slice(1).join(" ");
-                        const validRank = ALL_RANKS.find(r => r.toLowerCase() === newRankName.toLowerCase());
-
-                        if (!validRank) {
-                            terminalPrint("Invalid rank code.", "text-red-500");
-                            break;
-                        }
-
-                        if (targetName.toLowerCase() === currentUser.username.toLowerCase()) {
-                            currentUser.role = validRank;
-                            localStorage.setItem('chat_user', JSON.stringify(currentUser));
-                            refreshUI();
-                            terminalPrint(`Self-promotion successful: ${validRank}`, "text-emerald-500");
-                        } else {
-                            const userObj = liveUsers.find(u => u.username.toLowerCase() === targetName.toLowerCase());
-                            if (userObj) {
-                                userObj.role = validRank;
-                                refreshUI();
-                                terminalPrint(`Authority updated for ${userObj.username} to ${validRank}`, "text-emerald-500");
-                            } else {
-                                terminalPrint("Subject not found in live lobby.", "text-red-500");
-                            }
-                        }
-                    }
-                    break;
-                case '/listranks':
-                    terminalPrint(ALL_RANKS.join(", "), "text-indigo-400");
-                    break;
-                default:
-                    terminalPrint(`Unauthorized or unknown: ${command}`, "text-red-500");
-            }
         }
     </script>
 </body>
