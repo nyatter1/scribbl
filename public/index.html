@@ -46,7 +46,6 @@
         </div>
         
         <div class="flex items-center gap-4">
-            <!-- Themes button removed -->
             <div id="self-profile-trigger" class="flex items-center gap-3 cursor-pointer p-1 pr-3 hover:bg-slate-800 rounded-full transition border border-transparent hover:border-slate-700">
                 <img id="header-pfp" src="" class="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 object-cover">
                 <span id="header-username" class="text-xs font-bold text-white">@username</span>
@@ -55,14 +54,32 @@
     </header>
 
     <div class="flex-1 flex overflow-hidden">
-        <!-- Sidebar: Online Users -->
+        <!-- Sidebar: Categorized Users -->
         <aside class="w-64 bg-slate-900/30 border-r border-slate-800 flex flex-col hidden md:flex">
-            <div class="p-4 border-b border-slate-800 flex justify-between items-center">
-                <span class="text-[10px] font-black uppercase text-slate-500 tracking-widest">Connected Identities</span>
-                <span id="user-count" class="text-[10px] bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full font-bold">0</span>
-            </div>
-            <div id="user-list" class="flex-grow overflow-y-auto p-3 space-y-2 custom-scrollbar">
-                <!-- User items -->
+            <div id="user-list-container" class="flex-grow overflow-y-auto p-3 space-y-6 custom-scrollbar">
+                
+                <!-- Online Section -->
+                <div>
+                    <div class="px-2 mb-3 flex justify-between items-center">
+                        <span class="text-[10px] font-black uppercase text-indigo-400 tracking-widest">Online</span>
+                        <span id="online-count" class="text-[10px] bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full font-bold">0</span>
+                    </div>
+                    <div id="online-users" class="space-y-1">
+                        <!-- Online items -->
+                    </div>
+                </div>
+
+                <!-- Offline Section -->
+                <div class="opacity-60">
+                    <div class="px-2 mb-3 flex justify-between items-center border-t border-slate-800 pt-4">
+                        <span class="text-[10px] font-black uppercase text-slate-500 tracking-widest">Offline</span>
+                        <span id="offline-count" class="text-[10px] bg-slate-800 text-slate-500 px-2 py-0.5 rounded-full font-bold">0</span>
+                    </div>
+                    <div id="offline-users" class="space-y-1">
+                        <!-- Offline items -->
+                    </div>
+                </div>
+
             </div>
         </aside>
 
@@ -77,7 +94,7 @@
                 <div class="max-w-4xl mx-auto flex gap-3">
                     <input type="text" id="message-input" 
                         class="flex-1 bg-slate-900 border border-slate-800 rounded-2xl px-5 py-4 text-sm text-white focus:outline-none focus:border-indigo-500 transition-all"
-                        placeholder="Push message to terminal... (Type 'system' to talk to the bot)">
+                        placeholder="Push message to terminal...">
                     <button onclick="sendMessage()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-6 rounded-2xl transition font-bold text-xs uppercase tracking-widest">
                         Send
                     </button>
@@ -91,7 +108,6 @@
         <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" onclick="closeProfile()"></div>
         <div class="relative w-full max-w-md bg-slate-900 rounded-[2.5rem] overflow-hidden border border-slate-800 shadow-2xl message-anim">
             
-            <!-- View Mode -->
             <div id="profile-view-mode">
                 <div id="view-banner" class="profile-banner relative">
                     <button onclick="closeProfile()" class="absolute top-4 right-4 p-2 bg-black/20 hover:bg-black/40 rounded-full text-white backdrop-blur-md">
@@ -117,7 +133,6 @@
                 </div>
             </div>
 
-            <!-- Edit Mode -->
             <div id="profile-edit-mode" class="hidden">
                 <div class="p-6 border-b border-slate-800 flex items-center justify-between">
                     <h3 class="text-xs font-black uppercase text-slate-500 tracking-widest">Edit Identity</h3>
@@ -134,10 +149,6 @@
                             </div>
                             <input type="file" id="edit-pfp-input" accept="image/*" class="hidden" onchange="previewProfilePic(this)">
                         </label>
-                        <div class="flex-1">
-                            <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Banner Color</label>
-                            <input type="color" id="edit-banner-color" class="w-full h-10 bg-slate-800 border-none rounded-lg cursor-pointer">
-                        </div>
                     </div>
                     <div>
                         <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Username</label>
@@ -175,7 +186,6 @@
             syncChat();
             setInterval(syncChat, 2000);
             
-            // Handle Enter key
             document.getElementById('message-input').addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') sendMessage();
             });
@@ -183,30 +193,41 @@
 
         async function syncChat() {
             try {
-                // Fetch Users
                 const uRes = await fetch('/api/users');
                 activeUsers = await uRes.json();
                 renderUserList();
 
-                // Fetch Messages
                 const mRes = await fetch('/api/messages');
                 messages = await mRes.json();
                 if (messages.length !== lastMsgCount) {
                     renderMessages();
                     lastMsgCount = messages.length;
                 }
+
+                await fetch('/api/heartbeat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: currentUser.username })
+                });
             } catch (err) { console.error("Sync Error", err); }
         }
 
         function renderUserList() {
-            const list = document.getElementById('user-list');
-            const count = document.getElementById('user-count');
-            count.innerText = activeUsers.filter(u => u.isOnline).length;
+            const onlineList = document.getElementById('online-users');
+            const offlineList = document.getElementById('offline-users');
+            const onlineCount = document.getElementById('online-count');
+            const offlineCount = document.getElementById('offline-count');
 
-            list.innerHTML = activeUsers.map(u => `
-                <div onclick="openProfile('${u.username}')" class="flex items-center gap-3 p-2 hover:bg-slate-800 rounded-xl cursor-pointer transition group">
+            const online = activeUsers.filter(u => u.isOnline);
+            const offline = activeUsers.filter(u => !u.isOnline);
+
+            onlineCount.innerText = online.length;
+            offlineCount.innerText = offline.length;
+
+            const userToHtml = (u) => `
+                <div onclick="openProfile('${u.username}')" class="flex items-center gap-3 p-2 hover:bg-slate-800/50 rounded-xl cursor-pointer transition group">
                     <div class="relative">
-                        <img src="${u.pfp || `https://ui-avatars.com/api/?name=${u.username}&background=random`}" class="w-8 h-8 rounded-lg object-cover">
+                        <img src="${u.pfp || `https://ui-avatars.com/api/?name=${u.username}&background=random`}" class="w-8 h-8 rounded-lg object-cover grayscale-[0.3] group-hover:grayscale-0 transition">
                         ${u.isOnline ? '<div class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-green-500 border-2 border-slate-900 rounded-full"></div>' : ''}
                     </div>
                     <div class="overflow-hidden">
@@ -214,7 +235,10 @@
                         <p class="text-[9px] text-slate-600 font-black uppercase tracking-widest">${u.role}</p>
                     </div>
                 </div>
-            `).join('');
+            `;
+
+            onlineList.innerHTML = online.map(userToHtml).join('');
+            offlineList.innerHTML = offline.map(userToHtml).join('');
         }
 
         function renderMessages() {
@@ -266,50 +290,32 @@
             } catch (err) { console.error("Send Error", err); }
         }
 
-        /** PROFILE LOGIC **/
         async function openProfile(username) {
             const user = activeUsers.find(u => u.username === username);
             if (!user) return;
-
             const modal = document.getElementById('profile-modal');
             const editBtn = document.getElementById('edit-profile-btn');
-            
             document.getElementById('view-pfp').src = user.pfp || `https://ui-avatars.com/api/?name=${user.username}&background=random`;
             document.getElementById('view-username').innerText = `@${user.username}`;
             document.getElementById('view-role').innerText = user.role;
             document.getElementById('view-bio').innerText = user.bio || "No bio recorded in this identity node.";
-            
-            document.getElementById('view-banner').style.background = `linear-gradient(to right, #6366f1, #a855f7)`;
-
             if (username === currentUser.username) {
                 editBtn.classList.remove('hidden');
                 document.getElementById('edit-username').value = currentUser.username;
                 document.getElementById('edit-bio').value = currentUser.bio || "";
                 document.getElementById('edit-pfp-preview').src = user.pfp || `https://ui-avatars.com/api/?name=${user.username}&background=random`;
-            } else {
-                editBtn.classList.add('hidden');
-            }
-
+            } else { editBtn.classList.add('hidden'); }
             modal.classList.remove('hidden');
             toggleEditMode(false);
         }
 
-        function closeProfile() {
-            document.getElementById('profile-modal').classList.add('hidden');
-        }
-
+        function closeProfile() { document.getElementById('profile-modal').classList.add('hidden'); }
         function toggleEditMode(show) {
             const view = document.getElementById('profile-view-mode');
             const edit = document.getElementById('profile-edit-mode');
-            if (show) {
-                view.classList.add('hidden');
-                edit.classList.remove('hidden');
-            } else {
-                view.classList.remove('hidden');
-                edit.classList.add('hidden');
-            }
+            if (show) { view.classList.add('hidden'); edit.classList.remove('hidden'); } 
+            else { view.classList.remove('hidden'); edit.classList.add('hidden'); }
         }
-
         function previewProfilePic(input) {
             if (input.files && input.files[0]) {
                 const reader = new FileReader();
@@ -320,13 +326,10 @@
                 reader.readAsDataURL(input.files[0]);
             }
         }
-
         async function saveProfileChanges() {
             const newUsername = document.getElementById('edit-username').value.trim();
             const newBio = document.getElementById('edit-bio').value.trim();
-            
             if (!newUsername) return;
-
             try {
                 const res = await fetch('/api/users/profile', {
                     method: 'PUT',
@@ -338,23 +341,16 @@
                         profilePic: base64EditPfp || currentUser.pfp
                     })
                 });
-
                 const result = await res.json();
                 if (result.success) {
                     currentUser = { ...currentUser, ...result.user };
                     localStorage.setItem('chat_user', JSON.stringify(currentUser));
-                    
                     document.getElementById('header-username').innerText = `@${currentUser.username}`;
                     document.getElementById('header-pfp').src = currentUser.pfp || `https://ui-avatars.com/api/?name=${currentUser.username}&background=random`;
-                    
                     openProfile(currentUser.username);
                     syncChat();
-                } else {
-                    console.error(result.message || "Failed to update profile.");
                 }
-            } catch (err) {
-                console.error("Save Error", err);
-            }
+            } catch (err) { console.error("Save Error", err); }
         }
     </script>
 </body>
