@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChatApp - Realtime Admin Command</title>
+    <title>ChatApp - Realtime Admin Terminal</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
@@ -22,48 +22,46 @@
     </style>
 </head>
 <body class="bg-slate-950 text-slate-200 h-screen flex bg-grid">
-    <!-- Sidebar Navigation -->
-    <aside class="w-64 glass-heavy flex flex-col z-20 transition-all duration-300" id="sidebar">
+    <!-- Sidebar -->
+    <aside class="w-64 glass-heavy flex flex-col z-20">
         <div class="h-16 flex items-center px-6 border-b border-slate-800">
             <h1 class="text-lg font-black italic tracking-tighter text-white uppercase flex items-center gap-2">
                 <div class="w-3 h-3 bg-red-500 rounded-sm animate-pulse"></div>
-                ChatApp <span class="text-indigo-500">Admin</span>
+                Admin <span class="text-indigo-500">Terminal</span>
             </h1>
         </div>
         <nav class="flex-1 p-4 space-y-2">
-            <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-indigo-600/10 text-indigo-400 border border-indigo-500/30 transition">
+            <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-indigo-600/10 text-indigo-400 border border-indigo-500/30">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
                 <span class="text-xs font-bold uppercase tracking-widest">Dashboard</span>
             </button>
-            <button onclick="switchTab('users')" id="nav-users" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/50 transition">
+            <button onclick="switchTab('users')" id="nav-users" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800/50">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
-                <span class="text-xs font-bold uppercase tracking-widest">User Mgmt</span>
+                <span class="text-xs font-bold uppercase tracking-widest">Users</span>
             </button>
-            <button onclick="switchTab('logs')" id="nav-logs" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/50 transition">
+            <button onclick="switchTab('logs')" id="nav-logs" class="nav-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800/50">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                <span class="text-xs font-bold uppercase tracking-widest">System Logs</span>
+                <span class="text-xs font-bold uppercase tracking-widest">Logs</span>
             </button>
         </nav>
         <div class="p-4 border-t border-slate-800">
             <div class="glass p-3 rounded-xl flex items-center gap-3">
-                <div id="admin-pfp-container" class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-bold text-white text-xs">A</div>
-                <div>
-                    <p class="text-xs font-bold text-white" id="current-user-name">Root Admin</p>
-                    <p class="text-[9px] text-green-400 uppercase font-black tracking-widest">Master Auth</p>
+                <img id="admin-pfp" src="https://ui-avatars.com/api/?name=A&background=6366f1&color=fff" class="w-8 h-8 rounded-lg object-cover">
+                <div class="overflow-hidden">
+                    <p class="text-xs font-bold text-white truncate" id="current-user-name">Loading...</p>
+                    <p class="text-[9px] text-green-400 uppercase font-black tracking-widest">System Active</p>
                 </div>
             </div>
         </div>
     </aside>
 
-    <!-- Main Content -->
-    <main class="flex-1 flex flex-col overflow-hidden relative">
-        <header class="h-16 border-b border-slate-800/50 bg-slate-950/50 backdrop-blur-sm flex items-center justify-between px-8">
-            <h2 id="page-title" class="text-xl font-bold text-white">Dashboard Overview</h2>
+    <main class="flex-1 flex flex-col overflow-hidden">
+        <header class="h-16 border-b border-slate-800/50 flex items-center justify-between px-8 bg-slate-950/50 backdrop-blur">
+            <h2 id="page-title" class="text-xl font-bold text-white uppercase tracking-tighter italic">Dashboard</h2>
             <div class="flex items-center gap-4">
-                <button onclick="location.href='/index.html'" class="text-[10px] uppercase font-bold text-slate-400 hover:text-white transition">Exit Terminal</button>
                 <div class="flex items-center gap-2 px-3 py-1 bg-slate-900 rounded-full border border-slate-800">
                     <span class="w-2 h-2 rounded-full bg-green-500 status-dot"></span>
-                    <span class="text-[10px] uppercase font-bold text-slate-400">Live Sync Active</span>
+                    <span class="text-[10px] uppercase font-bold text-slate-400">Live Database Connected</span>
                 </div>
             </div>
         </header>
@@ -71,33 +69,33 @@
         <!-- View: Dashboard -->
         <div id="view-dashboard" class="flex-1 overflow-y-auto p-8 custom-scrollbar fade-in">
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <div class="glass p-6 rounded-3xl relative overflow-hidden group">
-                    <h3 class="text-slate-500 text-xs font-black uppercase tracking-widest mb-1">Total Users</h3>
-                    <p class="text-3xl font-black text-white" id="stat-total-users">0</p>
+                <div class="glass p-6 rounded-3xl">
+                    <h3 class="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-1">Total Identities</h3>
+                    <p class="text-4xl font-black text-white" id="stat-total-users">0</p>
                 </div>
-                <div class="glass p-6 rounded-3xl relative overflow-hidden group">
-                    <h3 class="text-slate-500 text-xs font-black uppercase tracking-widest mb-1">Muted Users</h3>
-                    <p class="text-3xl font-black text-red-400" id="stat-muted-users">0</p>
+                <div class="glass p-6 rounded-3xl">
+                    <h3 class="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-1">Muted Restricted</h3>
+                    <p class="text-4xl font-black text-red-400" id="stat-muted-users">0</p>
                 </div>
-                <div class="glass p-6 rounded-3xl relative overflow-hidden group">
-                    <h3 class="text-slate-500 text-xs font-black uppercase tracking-widest mb-1">Live Messages</h3>
-                    <p class="text-3xl font-black text-indigo-400" id="stat-live-msgs">0</p>
+                <div class="glass p-6 rounded-3xl">
+                    <h3 class="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-1">Live Messages</h3>
+                    <p class="text-4xl font-black text-indigo-400" id="stat-live-msgs">0</p>
                 </div>
-                <div class="glass p-6 rounded-3xl relative overflow-hidden group">
-                    <h3 class="text-slate-500 text-xs font-black uppercase tracking-widest mb-3">Sync Status</h3>
-                    <div class="text-xs font-mono text-green-400" id="sync-latency">Connected</div>
+                <div class="glass p-6 rounded-3xl">
+                    <h3 class="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-1">Online Now</h3>
+                    <p class="text-4xl font-black text-green-400" id="stat-online-users">0</p>
                 </div>
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div class="lg:col-span-2 glass rounded-3xl p-6">
-                    <h3 class="text-lg font-bold text-white mb-6">Recent Administrative Actions</h3>
+                    <h3 class="text-lg font-bold text-white mb-6 uppercase tracking-tight">Recent Administrative Actions</h3>
                     <div class="overflow-x-auto">
                         <table class="w-full text-left">
                             <thead>
                                 <tr class="text-[10px] uppercase text-slate-500 font-black border-b border-slate-800">
                                     <th class="pb-3 pl-2">Admin</th>
-                                    <th class="pb-3">Action Details</th>
+                                    <th class="pb-3">Action</th>
                                     <th class="pb-3 text-right">Time</th>
                                 </tr>
                             </thead>
@@ -105,56 +103,53 @@
                         </table>
                     </div>
                 </div>
-
-                <div class="glass rounded-3xl p-6 bg-slate-900/40">
-                    <h3 class="text-lg font-bold text-white mb-4">Live Event Stream</h3>
-                    <div class="h-64 overflow-y-auto custom-scrollbar font-mono text-[10px] space-y-1" id="event-stream"></div>
+                <div class="glass rounded-3xl p-6">
+                    <h3 class="text-lg font-bold text-white mb-4 uppercase tracking-tight">System Events</h3>
+                    <div class="h-64 overflow-y-auto custom-scrollbar font-mono text-[10px] space-y-2" id="event-stream"></div>
                 </div>
             </div>
         </div>
 
         <!-- View: User Management -->
         <div id="view-users" class="hidden flex-1 overflow-y-auto p-8 custom-scrollbar fade-in">
-            <div class="flex justify-between items-center mb-6 glass p-4 rounded-2xl">
-                <input type="text" id="user-search" placeholder="Filter users by identity..." class="bg-slate-950 border border-slate-800 rounded-xl py-2 px-4 text-sm text-white w-full max-w-md focus:outline-none focus:border-indigo-500 transition">
+            <div class="glass p-4 rounded-2xl mb-6">
+                <input type="text" id="user-search" placeholder="Search identities..." class="bg-slate-950 border border-slate-800 rounded-xl py-2 px-4 text-sm text-white w-full max-w-md focus:outline-none focus:border-indigo-500">
             </div>
             <div class="glass rounded-3xl overflow-hidden">
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left">
-                        <thead class="bg-slate-900/50">
-                            <tr class="text-[10px] uppercase text-slate-500 font-black">
-                                <th class="py-4 pl-6">Identity</th>
-                                <th class="py-4">Role</th>
-                                <th class="py-4">Status</th>
-                                <th class="py-4 text-right pr-6">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-800/50 text-sm" id="users-table-body"></tbody>
-                    </table>
-                </div>
+                <table class="w-full text-left">
+                    <thead class="bg-slate-900/50">
+                        <tr class="text-[10px] uppercase text-slate-500 font-black">
+                            <th class="py-4 pl-6">User Identity</th>
+                            <th class="py-4">Status</th>
+                            <th class="py-4">Mute State</th>
+                            <th class="py-4 text-right pr-6">Commands</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800/50 text-sm" id="users-table-body"></tbody>
+                </table>
             </div>
         </div>
 
         <!-- View: Logs -->
         <div id="view-logs" class="hidden flex-1 p-8 flex flex-col fade-in">
-            <div class="bg-black/60 rounded-3xl border border-slate-800 p-6 flex-1 font-mono text-[10px] overflow-y-auto custom-scrollbar leading-relaxed" id="system-logs"></div>
+            <div class="bg-black/60 rounded-3xl border border-slate-800 p-6 flex-1 font-mono text-[10px] overflow-y-auto custom-scrollbar" id="system-logs"></div>
         </div>
     </main>
 
-    <!-- ACTION MODAL -->
-    <div id="action-modal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4 bg-slate-950/60 transition-all duration-300">
-        <div class="glass bg-slate-900 w-full max-w-md rounded-3xl border border-indigo-500/30 shadow-2xl overflow-hidden fade-in">
+    <!-- Modals & Toasts -->
+    <div id="action-modal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4 bg-slate-950/60">
+        <div class="glass bg-slate-900 w-full max-w-md rounded-3xl border border-indigo-500/30 overflow-hidden fade-in">
             <div class="p-6 border-b border-slate-800">
-                <h3 id="modal-title" class="text-xl font-bold text-white flex items-center gap-2"></h3>
+                <h3 id="modal-title" class="text-xl font-bold text-white uppercase italic"></h3>
                 <p id="modal-subtitle" class="text-sm text-slate-400 mt-1"></p>
             </div>
             <div class="p-6 space-y-4">
                 <div>
-                    <label class="block text-[10px] uppercase font-black text-slate-500 mb-1">Reason for Action</label>
-                    <textarea id="action-reason" rows="3" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition" placeholder="Violation of community terms..."></textarea>
+                    <label class="block text-[10px] uppercase font-black text-slate-500 mb-1">Reason</label>
+                    <textarea id="action-reason" rows="3" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500" placeholder="Specify violation..."></textarea>
                 </div>
                 <div id="duration-container">
-                    <label class="block text-[10px] uppercase font-black text-slate-500 mb-1">Mute Duration</label>
+                    <label class="block text-[10px] uppercase font-black text-slate-500 mb-1">Duration</label>
                     <select id="action-duration" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500">
                         <option value="5">5 Minutes</option>
                         <option value="60">1 Hour</option>
@@ -164,42 +159,39 @@
                 </div>
             </div>
             <div class="p-6 bg-slate-950/50 flex gap-3">
-                <button onclick="closeModal()" class="flex-1 py-3 rounded-xl bg-slate-800 text-slate-300 font-bold text-sm hover:bg-slate-700 transition">Cancel</button>
-                <button id="confirm-action-btn" class="flex-[2] py-3 rounded-xl bg-indigo-600 text-white font-bold text-sm hover:bg-indigo-500 shadow-lg shadow-indigo-600/20 transition">Execute</button>
+                <button onclick="closeModal()" class="flex-1 py-3 rounded-xl bg-slate-800 text-slate-300 font-bold text-sm">Cancel</button>
+                <button id="confirm-action-btn" class="flex-[2] py-3 rounded-xl bg-indigo-600 text-white font-bold text-sm">Execute Command</button>
             </div>
         </div>
     </div>
 
-    <!-- TOAST -->
     <div id="toast" class="fixed bottom-6 right-6 translate-y-20 opacity-0 transition-all duration-300 z-[110]">
-        <div class="glass bg-slate-900 px-6 py-4 rounded-2xl border-l-4 border-indigo-500 flex items-center gap-3 shadow-2xl">
+        <div class="glass bg-slate-900 px-6 py-4 rounded-2xl border-l-4 border-indigo-500 flex items-center gap-3">
             <p class="text-xs font-bold text-white" id="toast-msg"></p>
         </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
-        import { getFirestore, collection, doc, onSnapshot, updateDoc, query, addDoc, serverTimestamp, getDoc } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+        import { getFirestore, collection, doc, onSnapshot, updateDoc, addDoc, serverTimestamp, getDoc } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
         import { getAuth, onAuthStateChanged, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
 
-        // Global Setup
         const firebaseConfig = JSON.parse(__firebase_config);
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-        let users = [];
+        let usersList = [];
         let currentTargetUser = null;
         let currentActionType = 'mute';
 
-        // Firestore Paths
-        const usersCol = collection(db, 'artifacts', appId, 'public', 'data', 'users');
-        const logsCol = collection(db, 'artifacts', appId, 'public', 'data', 'logs');
-        const msgsCol = collection(db, 'artifacts', appId, 'public', 'data', 'messages');
+        // Paths
+        const getPublicPath = (col) => collection(db, 'artifacts', appId, 'public', 'data', col);
+        const getUserDoc = (uid) => doc(db, 'artifacts', appId, 'public', 'data', 'users', uid);
 
-        // Auth and Init
-        const startTerminal = async () => {
+        // Initialization
+        const initAuth = async () => {
             if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                 await signInWithCustomToken(auth, __initial_auth_token);
             } else {
@@ -209,118 +201,93 @@
 
         onAuthStateChanged(auth, async (user) => {
             if (user) {
-                // Check if user is actually admin/owner
-                const userRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', user.uid);
-                const userSnap = await getDoc(userRef);
+                const userSnap = await getDoc(getUserDoc(user.uid));
                 const userData = userSnap.data();
+                
+                document.getElementById('current-user-name').innerText = userData?.username || `ID: ${user.uid.substring(0,6)}`;
+                if (userData?.profilePic) document.getElementById('admin-pfp').src = userData.profilePic;
 
-                document.getElementById('current-user-name').innerText = userData?.username || user.uid.substring(0, 8);
-                if (userData?.profilePic) {
-                    document.getElementById('admin-pfp-container').innerHTML = `<img src="${userData.profilePic}" class="w-full h-full object-cover rounded-lg">`;
-                }
-
-                initSync();
-                logToSystem(`Root terminal accessed by ${userData?.username || 'UID:' + user.uid.substring(0,5)}`, 'auth');
+                setupRealtimeSync();
+                logToSystem(`Admin access granted to session ${user.uid}`, 'auth');
             } else {
-                startTerminal();
+                initAuth();
             }
         });
 
-        function initSync() {
-            // 1. Users Sync
-            onSnapshot(usersCol, (snap) => {
-                users = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        function setupRealtimeSync() {
+            // 1. Sync User Directory
+            onSnapshot(getPublicPath('users'), (snap) => {
+                usersList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                 renderUserTable();
                 updateStats();
-            }, (err) => console.error("Users sync failed", err));
+            });
 
-            // 2. Logs Sync
-            onSnapshot(logsCol, (snap) => {
+            // 2. Sync Global Logs
+            onSnapshot(getPublicPath('logs'), (snap) => {
                 const logsDiv = document.getElementById('system-logs');
-                const streamDiv = document.getElementById('event-stream');
+                const eventStream = document.getElementById('event-stream');
                 
                 snap.docChanges().forEach(change => {
                     if (change.type === "added") {
                         const data = change.doc.data();
-                        const ts = data.timestamp?.seconds ? new Date(data.timestamp.seconds * 1000).toLocaleTimeString() : 'NOW';
+                        const time = data.timestamp?.seconds ? new Date(data.timestamp.seconds * 1000).toLocaleTimeString() : 'NOW';
                         
-                        // Full Log
-                        const line = document.createElement('div');
-                        line.className = "py-1 border-b border-slate-800/20";
-                        line.innerHTML = `<span class="text-slate-600">[${ts}]</span> <span class="font-bold uppercase ${getLogColor(data.type)}">${data.type}</span>: ${data.message}`;
-                        logsDiv.prepend(line);
+                        const logEntry = document.createElement('div');
+                        logEntry.className = "py-1 border-b border-slate-800/20 last:border-0";
+                        logEntry.innerHTML = `<span class="text-slate-600">[${time}]</span> <span class="font-bold uppercase ${getTypeColor(data.type)}">${data.type}</span>: ${data.message}`;
+                        logsDiv.prepend(logEntry);
 
-                        // Mini Stream
-                        const streamLine = document.createElement('div');
-                        streamLine.className = "text-slate-500 truncate";
-                        streamLine.innerHTML = `> ${data.message}`;
-                        streamDiv.prepend(streamLine);
-                        if (streamDiv.children.length > 20) streamDiv.lastChild.remove();
+                        const streamEntry = document.createElement('div');
+                        streamEntry.className = "truncate text-slate-500 hover:text-slate-300 transition cursor-default";
+                        streamEntry.innerText = `> ${data.message}`;
+                        eventStream.prepend(streamEntry);
+                        if (eventStream.children.length > 30) eventStream.lastChild.remove();
                     }
                 });
             });
 
-            // 3. Messages Sync (Count Only)
-            onSnapshot(msgsCol, (snap) => {
+            // 3. Sync Messages for Stats
+            onSnapshot(getPublicPath('messages'), (snap) => {
                 document.getElementById('stat-live-msgs').innerText = snap.size;
             });
         }
 
-        function getLogColor(type) {
-            if (type === 'auth') return 'text-blue-400';
-            if (type === 'err') return 'text-red-400';
-            if (type === 'warn') return 'text-yellow-400';
-            return 'text-indigo-400';
-        }
-
-        // UI Handlers
-        window.switchTab = (tabId) => {
-            ['dashboard', 'users', 'logs'].forEach(id => {
-                document.getElementById(`view-${id}`).classList.add('hidden');
-                document.getElementById(`nav-${id}`).classList.replace('bg-indigo-600/10', 'text-slate-400');
-                document.getElementById(`nav-${id}`).classList.remove('text-indigo-400', 'border', 'border-indigo-500/30');
-            });
-            document.getElementById(`view-${tabId}`).classList.remove('hidden');
-            document.getElementById(`nav-${tabId}`).classList.add('bg-indigo-600/10', 'text-indigo-400', 'border', 'border-indigo-500/30');
-            document.getElementById('page-title').innerText = tabId.charAt(0).toUpperCase() + tabId.slice(1) + " Mgmt";
-        };
-
         function renderUserTable() {
             const tbody = document.getElementById('users-table-body');
-            tbody.innerHTML = users.map(u => {
-                const username = u.username || 'Ghost';
+            tbody.innerHTML = usersList.map(u => {
+                const isOnline = u.isOnline;
                 const isMuted = u.isMuted && (!u.muteUntil || u.muteUntil === -1 || u.muteUntil > Date.now());
-                const roleColor = u.role === 'Owner' ? 'text-amber-400' : (u.role === 'Developer' ? 'text-indigo-400' : 'text-slate-400');
+                const username = u.username || 'Anonymous';
                 
                 return `
                     <tr class="hover:bg-slate-800/20 transition group">
                         <td class="py-4 pl-6">
                             <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center overflow-hidden">
-                                    ${u.profilePic ? `<img src="${u.profilePic}" class="w-full h-full object-cover">` : `<span class="text-xs font-bold text-slate-500">${username.charAt(0)}</span>`}
-                                </div>
+                                <img src="${u.profilePic || `https://ui-avatars.com/api/?name=${username}&background=random`}" class="w-10 h-10 rounded-xl object-cover">
                                 <div>
-                                    <p class="text-sm font-bold text-white">@${username}</p>
+                                    <p class="text-sm font-bold text-white">${u.id === auth.currentUser.uid ? 'YOU (Admin)' : username}</p>
                                     <p class="text-[9px] font-mono text-slate-500 uppercase tracking-tighter">${u.id}</p>
                                 </div>
                             </div>
                         </td>
                         <td class="py-4">
-                            <span class="text-[10px] font-black uppercase tracking-widest ${roleColor}">${u.role || 'Member'}</span>
+                            <span class="flex items-center gap-1.5 text-[10px] font-black ${isOnline ? 'text-green-400' : 'text-slate-600'}">
+                                <span class="w-1.5 h-1.5 rounded-full bg-current ${isOnline ? 'status-dot' : ''}"></span>
+                                ${isOnline ? 'ONLINE' : 'OFFLINE'}
+                            </span>
                         </td>
                         <td class="py-4">
-                            <div class="flex items-center gap-2">
-                                <span class="w-1.5 h-1.5 rounded-full ${u.isOnline ? 'bg-green-500 status-dot' : 'bg-slate-700'}"></span>
-                                <span class="text-[10px] font-black ${u.isOnline ? 'text-white' : 'text-slate-600'}">${u.isOnline ? 'LIVE' : 'IDLE'}</span>
-                                ${isMuted ? `<span class="ml-2 text-[9px] bg-red-500/20 text-red-400 px-1 rounded border border-red-500/30">MUTED</span>` : ''}
-                            </div>
+                            ${isMuted ? 
+                                `<span class="text-[9px] font-bold text-red-400 bg-red-400/10 px-2 py-0.5 rounded border border-red-500/20">RESTRICTED</span>` : 
+                                `<span class="text-[9px] font-bold text-slate-500 bg-slate-800 px-2 py-0.5 rounded">CLEAN</span>`
+                            }
                         </td>
                         <td class="py-4 pr-6 text-right">
                             <div class="flex justify-end gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition">
-                                <button onclick="openModal('${u.id}', 'mute')" class="p-2 rounded-lg bg-slate-800 hover:text-indigo-400 transition" title="Mute User">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
+                                <button onclick="triggerAction('${u.id}', 'mute')" class="p-2 rounded-lg bg-slate-800 hover:text-indigo-400">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg>
                                 </button>
-                                <button onclick="openModal('${u.id}', 'kick')" class="p-2 rounded-lg bg-slate-800 hover:text-red-400 transition" title="Kick User">
+                                <button onclick="triggerAction('${u.id}', 'kick')" class="p-2 rounded-lg bg-slate-800 hover:text-red-400">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
                                 </button>
                             </div>
@@ -331,69 +298,85 @@
         }
 
         function updateStats() {
-            document.getElementById('stat-total-users').innerText = users.length;
-            document.getElementById('stat-muted-users').innerText = users.filter(u => u.isMuted).length;
+            document.getElementById('stat-total-users').innerText = usersList.length;
+            document.getElementById('stat-muted-users').innerText = usersList.filter(u => u.isMuted).length;
+            document.getElementById('stat-online-users').innerText = usersList.filter(u => u.isOnline).length;
         }
 
-        // Action Logic
-        window.openModal = (uid, type) => {
-            currentTargetUser = users.find(u => u.id === uid);
-            if(!currentTargetUser) return;
+        window.triggerAction = (uid, type) => {
+            currentTargetUser = usersList.find(u => u.id === uid);
+            if (!currentTargetUser) return;
             currentActionType = type;
-            
-            const modal = document.getElementById('action-modal');
+
             document.getElementById('modal-title').innerText = type === 'mute' ? 'Mute Identity' : 'Kick Identity';
-            document.getElementById('modal-subtitle').innerText = `Target: @${currentTargetUser.username || currentTargetUser.id}`;
+            document.getElementById('modal-subtitle').innerText = `Target: @${currentTargetUser.username || 'Unknown'}`;
             document.getElementById('duration-container').style.display = type === 'mute' ? 'block' : 'none';
             document.getElementById('action-reason').value = '';
             
-            modal.classList.add('active');
-            modal.classList.remove('hidden');
+            document.getElementById('action-modal').classList.remove('hidden');
+            document.getElementById('action-modal').classList.add('active');
         };
 
         window.closeModal = () => {
-            document.getElementById('action-modal').classList.remove('active');
             document.getElementById('action-modal').classList.add('hidden');
+            document.getElementById('action-modal').classList.remove('active');
         };
 
         document.getElementById('confirm-action-btn').onclick = async () => {
             if (!auth.currentUser || !currentTargetUser) return;
-            const reason = document.getElementById('action-reason').value || "No reason provided.";
+            const reason = document.getElementById('action-reason').value || "No reason specified.";
             const duration = parseInt(document.getElementById('action-duration').value);
-
+            
             try {
-                const userRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', currentTargetUser.id);
-                
+                const userRef = getUserDoc(currentTargetUser.id);
                 if (currentActionType === 'mute') {
                     const muteUntil = duration === -1 ? -1 : Date.now() + (duration * 60000);
                     await updateDoc(userRef, { isMuted: true, muteUntil, muteReason: reason });
-                    logToSystem(`Muted @${currentTargetUser.username} for ${duration}m | Reason: ${reason}`, 'warn');
+                    logToSystem(`Muted ${currentTargetUser.username || currentTargetUser.id} | Reason: ${reason}`, 'warn');
                 } else {
                     await updateDoc(userRef, { isKicked: true, kickReason: reason });
-                    logToSystem(`Kicked @${currentTargetUser.username} | Reason: ${reason}`, 'err');
+                    logToSystem(`Kicked ${currentTargetUser.username || currentTargetUser.id} | Reason: ${reason}`, 'err');
                 }
-
-                showToast(`Action executed on @${currentTargetUser.username}`);
+                showToast("Identity updated successfully.");
                 closeModal();
-            } catch (err) {
-                showToast("Execution failed: Perms error.");
+            } catch (e) {
+                showToast("Insufficient permissions for this action.");
             }
         };
 
         async function logToSystem(message, type) {
             try {
-                const adminName = document.getElementById('current-user-name').innerText;
-                await addDoc(logsCol, { message, type, timestamp: serverTimestamp(), admin: adminName });
+                await addDoc(getPublicPath('logs'), { 
+                    message, 
+                    type, 
+                    timestamp: serverTimestamp(),
+                    admin: auth.currentUser.uid
+                });
                 
-                // Add to Flow Table
-                const flow = document.getElementById('flow-table');
+                const table = document.getElementById('flow-table');
                 const row = document.createElement('tr');
-                row.className = "hover:bg-slate-800/10 transition";
-                row.innerHTML = `<td class="py-2 pl-2 text-indigo-400 font-bold">${adminName}</td><td class="py-2 text-slate-400 text-xs">${message}</td><td class="py-2 text-right text-[10px] text-slate-600">JUST NOW</td>`;
-                flow.prepend(row);
-                if (flow.children.length > 10) flow.lastChild.remove();
+                row.innerHTML = `<td class="py-2 pl-2 text-indigo-400 font-bold">ROOT</td><td class="py-2 text-slate-400 text-xs">${message}</td><td class="py-2 text-right text-[10px] text-slate-600">NOW</td>`;
+                table.prepend(row);
+                if (table.children.length > 10) table.lastChild.remove();
             } catch(e) {}
         }
+
+        function getTypeColor(type) {
+            if (type === 'auth') return 'text-blue-400';
+            if (type === 'warn') return 'text-yellow-400';
+            if (type === 'err') return 'text-red-400';
+            return 'text-indigo-400';
+        }
+
+        window.switchTab = (tabId) => {
+            ['dashboard', 'users', 'logs'].forEach(id => {
+                document.getElementById(`view-${id}`).classList.add('hidden');
+                document.getElementById(`nav-${id}`).className = "nav-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-slate-800/50";
+            });
+            document.getElementById(`view-${tabId}`).classList.remove('hidden');
+            document.getElementById(`nav-${tabId}`).className = "nav-item w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-indigo-600/10 text-indigo-400 border border-indigo-500/30 shadow-lg";
+            document.getElementById('page-title').innerText = tabId;
+        };
 
         function showToast(msg) {
             const toast = document.getElementById('toast');
@@ -408,8 +391,9 @@
 
         document.getElementById('user-search').addEventListener('input', (e) => {
             const val = e.target.value.toLowerCase();
-            const rows = document.querySelectorAll('#users-table-body tr');
-            rows.forEach(r => r.style.display = r.innerText.toLowerCase().includes(val) ? '' : 'none');
+            document.querySelectorAll('#users-table-body tr').forEach(r => {
+                r.style.display = r.innerText.toLowerCase().includes(val) ? '' : 'none';
+            });
         });
     </script>
 </body>
