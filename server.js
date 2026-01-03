@@ -13,13 +13,12 @@ const io = new Server(server, {
 });
 
 // --- CONFIGURATION ---
-// Using your provided Atlas URI exactly as requested
-const MONGODB_URI = "mongodb+srv://hayden:123password123@cluster0.57lnswh.mongodb.net/vikvok_live?retryWrites=true&w=majority";
+const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://hayden:123password123@cluster0.57lnswh.mongodb.net/vikvok_live?retryWrites=true&w=majority";
 const PORT = process.env.PORT || 3000;
 
 // --- MONGODB CONNECTION ---
 mongoose.connect(MONGODB_URI)
-    .then(() => console.log('[DATABASE] Connected to MongoDB Atlas Strategy Node'))
+    .then(() => console.log('[DATABASE] Connected to MongoDB Atlas'))
     .catch(err => console.error('[DATABASE] Connection Error:', err));
 
 // --- SCHEMAS & MODELS ---
@@ -65,7 +64,7 @@ app.post('/api/auth/register', async (req, res) => {
             password,
             email: email || "",
             pfp: pfp || `https://api.dicebear.com/7.x/identicon/svg?seed=${username}`,
-            role: username.toLowerCase() === "developer" ? "Developer" : "Member",
+            role: (username.toLowerCase() === "developer" || username.toLowerCase() === "hayden") ? "Developer" : "Member",
             isOnline: true,
             lastSeen: Date.now()
         });
@@ -100,6 +99,29 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
+// --- USER PROFILE ROUTES ---
+app.put('/api/users/profile', async (req, res) => {
+    try {
+        const { currentUsername, username, email, bio, profilePic } = req.body;
+        const updateData = {};
+        if (username) updateData.username = username;
+        if (email) updateData.email = email;
+        if (bio !== undefined) updateData.bio = bio;
+        if (profilePic) updateData.pfp = profilePic;
+
+        const updatedUser = await User.findOneAndUpdate(
+            { username: currentUsername },
+            updateData,
+            { new: true }
+        ).select('-password');
+
+        if (!updatedUser) return res.status(404).json({ success: false, message: "User not found" });
+        res.json({ success: true, user: updatedUser });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
 // --- ADMIN API ---
 app.get('/api/users', async (req, res) => {
     try {
@@ -118,7 +140,12 @@ app.put('/api/admin/rank', async (req, res) => {
             return res.status(403).json({ success: false, message: "Clearance Level Insufficient" });
         }
 
-        const updated = await User.findOneAndUpdate({ username: targetUsername }, { role: newRole }, { new: true });
+        const updated = await User.findOneAndUpdate(
+            { username: targetUsername }, 
+            { role: newRole }, 
+            { new: true }
+        ).select('-password');
+        
         io.emit('user_updated', updated);
         res.json({ success: true });
     } catch (err) {
@@ -126,13 +153,29 @@ app.put('/api/admin/rank', async (req, res) => {
     }
 });
 
-// --- SOCKET.IO LOGIC ---
-let activeConnections = new Map(); // socket.id -> user profile
+app.delete('/api/admin/users/:username', async (req, res) => {
+    const { adminUsername } = req.query;
+    const { username } = req.params;
+    try {
+        const admin = await User.findOne({ username: adminUsername });
+        if (!admin || (admin.role !== 'Developer' && admin.role !== 'Owner')) {
+            return res.status(403).send("Unauthorized");
+        }
+        await User.findOneAndDelete({ username });
+        await Message.deleteMany({ username });
+        res.sendStatus(200);
+    } catch (err) {
+        res.status(500).send(err.message);
+    }
+});
+
+// --- SOCKET.IO REAL-TIME ENGINE ---
+let activeConnections = new Map();
 
 io.on('connection', (socket) => {
-    console.log('[SOCKET] New connection:', socket.id);
-
     socket.on('join', async (userData) => {
+        if (!userData || !userData.username) return;
+        
         const user = await User.findOneAndUpdate(
             { username: userData.username },
             { isOnline: true, lastSeen: Date.now() },
@@ -150,7 +193,6 @@ io.on('connection', (socket) => {
             };
             activeConnections.set(socket.id, publicUser);
 
-            // Fetch last 50 non-secret messages
             const history = await Message.find({ isSecret: false }).sort({ timestamp: -1 }).limit(50);
             socket.emit('init_data', {
                 history: history.reverse(),
@@ -170,56 +212,24 @@ io.on('connection', (socket) => {
             role: user.role,
             pfp: user.pfp,
             text: msgData.text,
-            isSecret: msgData.isSecret || false,
-            timestamp: new Date()
+            isSecret: msgData.isSecret || false
         });
 
         await newMessage.save();
         io.emit('new_message', newMessage);
-
-        // System Greeting Logic
-        if (msgData.text.toLowerCase().includes("hello system")) {
-            const botReply = new Message({
-                username: "System",
-                role: "Bot",
-                pfp: "https://api.dicebear.com/7.x/bottts/svg?seed=System",
-                text: `Acknowledged, ${user.username}. Terminal session is stable.`,
-                isSecret: msgData.isSecret || false
-            });
-            await botReply.save();
-            io.emit('new_message', botReply);
-        }
     });
 
-    // Terminal Commands (Server-side rank verification)
     socket.on('dev_command', async (data) => {
         const user = activeConnections.get(socket.id);
-        if (!user || user.role !== 'Developer') {
-            return socket.emit('terminal_response', { 
-                text: "Access Denied: Developer clearance required for kernel override.", 
-                color: "text-red-500" 
-            });
+        if (!user || (user.role !== 'Developer' && user.role !== 'Owner')) {
+            return socket.emit('terminal_response', { text: "Access Denied", color: "text-red-500" });
         }
 
-        const { command, args } = data;
-        switch (command) {
-            case 'clear':
-                await Message.deleteMany({ isSecret: false });
-                io.emit('clear_chat');
-                socket.emit('terminal_response', { text: "Global message buffer cleared.", color: "text-emerald-500" });
-                break;
-            case 'rank':
-                const [target, role] = args;
-                const updated = await User.findOneAndUpdate({ username: target }, { role }, { new: true });
-                if (updated) {
-                    io.emit('user_updated', updated);
-                    socket.emit('terminal_response', { text: `User ${target} rank set to ${role}.`, color: "text-emerald-500" });
-                } else {
-                    socket.emit('terminal_response', { text: "Target user not found in database.", color: "text-red-500" });
-                }
-                break;
-            default:
-                socket.emit('terminal_response', { text: "Unknown command identifier.", color: "text-slate-500" });
+        const { command } = data;
+        if (command === 'clear') {
+            await Message.deleteMany({ isSecret: false });
+            io.emit('clear_chat');
+            socket.emit('terminal_response', { text: "Chat history wiped.", color: "text-emerald-500" });
         }
     });
 
@@ -229,23 +239,12 @@ io.on('connection', (socket) => {
             await User.findOneAndUpdate({ username: user.username }, { isOnline: false, lastSeen: Date.now() });
             activeConnections.delete(socket.id);
             io.emit('user_left', socket.id);
-            console.log(`[SOCKET] ${user.username} disconnected.`);
         }
     });
 });
 
-// Serve the app
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-server.listen(PORT, () => {
-    console.log(`
-    =============================================
-    VIKVOK LIVE SERVER ACTIVE
-    Port: ${PORT}
-    Database: MongoDB Atlas (Cluster0)
-    Real-time: Socket.io Enabled
-    =============================================
-    `);
-});
+server.listen(PORT, () => console.log(`[SYSTEM] Node running on port ${PORT}`));
