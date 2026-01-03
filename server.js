@@ -13,6 +13,7 @@ const io = new Server(server, {
 });
 
 // --- CONFIGURATION ---
+// Using the provided URI - ensure your IP is whitelisted in MongoDB Atlas
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://hayden:123password123@cluster0.57lnswh.mongodb.net/vikvok_live?retryWrites=true&w=majority";
 const PORT = process.env.PORT || 3000;
 
@@ -29,6 +30,9 @@ const userSchema = new mongoose.Schema({
     pfp: String,
     role: { type: String, default: 'Member' },
     isOnline: { type: Boolean, default: false },
+    isMuted: { type: Boolean, default: false }, // Added for Admin Panel
+    isKicked: { type: Boolean, default: false }, // Added for Admin Panel
+    kickReason: { type: String, default: "" },
     lastSeen: { type: Number, default: Date.now },
     bio: { type: String, default: "" }
 });
@@ -47,7 +51,7 @@ const Message = mongoose.model('Message', messageSchema);
 
 // --- MIDDLEWARE ---
 app.use(cors());
-app.use(express.json({ limit: '15mb' }));
+app.use(express.json({ limit: '50mb' })); // Support high-res PFP uploads
 app.use(express.static(path.join(__dirname, 'public')));
 
 // --- AUTHENTICATION ROUTES ---
@@ -64,7 +68,7 @@ app.post('/api/auth/register', async (req, res) => {
             password,
             email: email || "",
             pfp: pfp || `https://api.dicebear.com/7.x/identicon/svg?seed=${username}`,
-            role: (username.toLowerCase() === "developer" || username.toLowerCase() === "hayden") ? "Developer" : "Member",
+            role: (username.toLowerCase() === "developer" || username.toLowerCase() === "hayden" || username.toLowerCase() === "owner") ? "Developer" : "Member",
             isOnline: true,
             lastSeen: Date.now()
         });
@@ -122,7 +126,7 @@ app.put('/api/users/profile', async (req, res) => {
     }
 });
 
-// --- ADMIN API ---
+// --- ADMIN API (FOR PANEL) ---
 app.get('/api/users', async (req, res) => {
     try {
         const users = await User.find({}, '-password');
@@ -146,11 +150,25 @@ app.put('/api/admin/rank', async (req, res) => {
             { new: true }
         ).select('-password');
         
+        // Notify all clients of the rank change
         io.emit('user_updated', updated);
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
     }
+});
+
+// Mute/Unmute Logic
+app.put('/api/admin/mute', async (req, res) => {
+    const { adminUsername, targetUsername, isMuted } = req.body;
+    try {
+        const admin = await User.findOne({ username: adminUsername });
+        if (!admin || (admin.role !== 'Developer' && admin.role !== 'Owner')) return res.sendStatus(403);
+        
+        const updated = await User.findOneAndUpdate({ username: targetUsername }, { isMuted }, { new: true });
+        io.emit('user_muted', { username: targetUsername, isMuted });
+        res.json({ success: true });
+    } catch (err) { res.status(500).send(err.message); }
 });
 
 app.delete('/api/admin/users/:username', async (req, res) => {
@@ -161,6 +179,10 @@ app.delete('/api/admin/users/:username', async (req, res) => {
         if (!admin || (admin.role !== 'Developer' && admin.role !== 'Owner')) {
             return res.status(403).send("Unauthorized");
         }
+        
+        // Broadcast kick before deletion
+        io.emit('user_kicked', { username, reason: "Administrative Removal" });
+        
         await User.findOneAndDelete({ username });
         await Message.deleteMany({ username });
         res.sendStatus(200);
@@ -184,12 +206,13 @@ io.on('connection', (socket) => {
 
         if (user) {
             const publicUser = {
-                id: socket.id,
+                socketId: socket.id,
                 username: user.username,
                 role: user.role,
                 pfp: user.pfp,
                 bio: user.bio,
-                isOnline: true
+                isOnline: true,
+                isMuted: user.isMuted
             };
             activeConnections.set(socket.id, publicUser);
 
@@ -204,13 +227,17 @@ io.on('connection', (socket) => {
     });
 
     socket.on('send_message', async (msgData) => {
-        const user = activeConnections.get(socket.id);
-        if (!user) return;
+        const userInSession = activeConnections.get(socket.id);
+        if (!userInSession) return;
+
+        // Check DB for mute status to prevent spoofing
+        const userDb = await User.findOne({ username: userInSession.username });
+        if (userDb && userDb.isMuted) return;
 
         const newMessage = new Message({
-            username: user.username,
-            role: user.role,
-            pfp: user.pfp,
+            username: userInSession.username,
+            role: userInSession.role,
+            pfp: userInSession.pfp,
             text: msgData.text,
             isSecret: msgData.isSecret || false
         });
@@ -247,4 +274,7 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-server.listen(PORT, () => console.log(`[SYSTEM] Node running on port ${PORT}`));
+server.listen(PORT, () => {
+    console.log(`[SYSTEM] Node running on port ${PORT}`);
+    console.log(`[NETWORK] Socket.io active for Real-time Admin Control`);
+});
