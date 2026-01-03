@@ -2,11 +2,14 @@ const express = require('express');
 const http = require('http');
 const path = require('path');
 const mongoose = require('mongoose');
+const cors = require('cors');
+require('dotenv').config();
 
 const app = express();
 const server = http.createServer(app);
 
 // --- CONFIGURATION ---
+// Using your provided Atlas URI
 const MONGODB_URI = "mongodb+srv://hayden:123password123@cluster0.57lnswh.mongodb.net/vikvok_live?retryWrites=true&w=majority";
 const PORT = process.env.PORT || 3000;
 
@@ -39,6 +42,7 @@ const User = mongoose.model('User', userSchema);
 const Message = mongoose.model('Message', messageSchema);
 
 // --- MIDDLEWARE ---
+app.use(cors());
 app.use(express.json({ limit: '15mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -164,9 +168,9 @@ app.put('/api/users/profile', async (req, res) => {
             const exists = await User.findOne({ username });
             if (exists) return res.status(400).json({ success: false, message: "New username taken" });
             
-            user.username = username;
             // Update past messages
             await Message.updateMany({ username: currentUsername }, { username: username });
+            user.username = username;
         }
 
         user.email = email || user.email;
